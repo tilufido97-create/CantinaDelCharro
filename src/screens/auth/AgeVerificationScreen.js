@@ -135,14 +135,10 @@ export default function AgeVerificationScreen({ route, navigation }) {
 
     try {
       await AsyncStorage.setItem('authCompleted', 'true');
-      console.log('✅ authCompleted guardado en AsyncStorage');
+      console.log('✅ authCompleted guardado - RootNavigator detectará el cambio');
       
-      setTimeout(() => {
-        navigation.reset({
-          index: 0,
-          routes: [{ name: 'Splash' }],
-        });
-      }, 2000);
+      // No navegar manualmente, dejar que RootNavigator detecte el cambio
+      // El interval de 1 segundo lo detectará automáticamente
     } catch (error) {
       console.error('❌ Error guardando auth:', error);
       setError('Error al completar registro');

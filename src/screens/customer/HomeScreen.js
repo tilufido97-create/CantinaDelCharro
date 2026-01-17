@@ -35,7 +35,10 @@ export default function HomeScreen({ navigation }) {
             <Text style={styles.greeting}>¡Hola, amigo!</Text>
             <Text style={styles.location}>📍 La Paz, Bolivia</Text>
           </View>
-          <TouchableOpacity style={styles.cartButton}>
+          <TouchableOpacity 
+            style={styles.cartButton}
+            onPress={() => navigation.navigate('Checkout')}
+          >
             <Text style={styles.cartIcon}>🛒</Text>
             {cartCount > 0 && (
               <View style={styles.badge}>

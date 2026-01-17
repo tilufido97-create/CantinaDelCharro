@@ -265,3 +265,47 @@ export const QUICK_SUGGESTIONS = [
   'Ver ofertas del día',
   'Explicar puntos',
 ];
+
+// Zonas soportadas
+export const SUPPORTED_ZONES = [
+  { id: 1, name: 'Sopocachi', minDistance: 0.5, maxDistance: 3.0 },
+  { id: 2, name: 'Miraflores', minDistance: 1.5, maxDistance: 4.0 },
+  { id: 3, name: 'Arce', minDistance: 0.3, maxDistance: 2.5 }
+];
+
+// Métodos de pago
+export const PAYMENT_METHODS = [
+  {
+    id: 'cash',
+    name: 'Efectivo contra entrega',
+    icon: '💵',
+    description: 'Paga al recibir tu pedido',
+    enabled: true
+  },
+  {
+    id: 'qr_tigo',
+    name: 'Tigo Money (QR)',
+    icon: '📱',
+    description: 'Pago instantáneo con QR',
+    enabled: true
+  },
+  {
+    id: 'qr_bank',
+    name: 'Transferencia QR Banco',
+    icon: '🏦',
+    description: 'BCP, BNB, Banco Sol, etc.',
+    enabled: true
+  }
+];
+
+// Datos de tienda
+export const STORE_INFO = {
+  name: 'La Cantina del Charro',
+  address: 'Av. Arce #2140, Sopocachi',
+  coordinates: {
+    latitude: -16.5000,
+    longitude: -68.1193
+  },
+  phone: '+591 2 2441234',
+  whatsapp: '+591 70123456'
+};

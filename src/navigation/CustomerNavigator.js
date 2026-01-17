@@ -1,16 +1,23 @@
 import React from 'react';
+import { createStackNavigator } from '@react-navigation/stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Text } from 'react-native';
 import HomeScreen from '../screens/customer/HomeScreen';
 import CatalogScreen from '../screens/customer/CatalogScreen';
 import MixologyAssistantScreen from '../screens/customer/MixologyAssistantScreen';
-import CartScreen from '../screens/customer/CartScreen';
+import GamesScreen from '../screens/customer/GamesScreen';
 import ProfileScreen from '../screens/customer/ProfileScreen';
+import CheckoutScreen from '../screens/customer/CheckoutScreen';
+import AddressScreen from '../screens/customer/AddressScreen';
+import PaymentMethodScreen from '../screens/customer/PaymentMethodScreen';
+import OrderConfirmationScreen from '../screens/customer/OrderConfirmationScreen';
+import OrderTrackingScreen from '../screens/customer/OrderTrackingScreen';
 import { COLORS } from '../constants/theme';
 
 const Tab = createBottomTabNavigator();
+const Stack = createStackNavigator();
 
-export default function CustomerNavigator() {
+function TabNavigator() {
   return (
     <Tab.Navigator
       screenOptions={{
@@ -57,12 +64,12 @@ export default function CustomerNavigator() {
         }}
       />
       <Tab.Screen 
-        name="CartTab"
-        component={CartScreen}
+        name="GamesTab"
+        component={GamesScreen}
         options={{
-          tabBarLabel: 'Carrito',
+          tabBarLabel: 'Juegos',
           tabBarIcon: ({ color, size }) => (
-            <Text style={{ fontSize: 24 }}>🛒</Text>
+            <Text style={{ fontSize: 24 }}>🎮</Text>
           ),
         }}
       />
@@ -77,5 +84,23 @@ export default function CustomerNavigator() {
         }}
       />
     </Tab.Navigator>
+  );
+}
+
+export default function CustomerNavigator() {
+  return (
+    <Stack.Navigator
+      screenOptions={{
+        headerShown: false,
+        cardStyle: { backgroundColor: COLORS.bg.primary },
+      }}
+    >
+      <Stack.Screen name="MainTabs" component={TabNavigator} />
+      <Stack.Screen name="Checkout" component={CheckoutScreen} />
+      <Stack.Screen name="Address" component={AddressScreen} />
+      <Stack.Screen name="PaymentMethod" component={PaymentMethodScreen} />
+      <Stack.Screen name="OrderConfirmation" component={OrderConfirmationScreen} />
+      <Stack.Screen name="OrderTracking" component={OrderTrackingScreen} />
+    </Stack.Navigator>
   );
 }
