@@ -33,6 +33,13 @@ export default function GamesScreen({ navigation }) {
               variant="outline"
               fullWidth
             />
+            
+            <Button
+              title="🧠 Cultura Chupística"
+              onPress={() => navigation.navigate('CulturaChupistica')}
+              variant="outline"
+              fullWidth
+            />
           </View>
         </View>
 
@@ -41,14 +48,13 @@ export default function GamesScreen({ navigation }) {
           <Text style={styles.sectionTitle}>⏳ Próximamente</Text>
           
           <Text style={styles.comingSoonText}>
-            4 juegos sociales más están en camino:
+            3 juegos sociales más están en camino:
           </Text>
 
           <View style={styles.gamesList}>
             <Text style={styles.gameItem}>🎰 Cantina Roulette</Text>
             <Text style={styles.gameItem}>🍹 Mixology Master</Text>
             <Text style={styles.gameItem}>📸 Shot Challenge</Text>
-            <Text style={styles.gameItem}>🧠 Cultura Chupística</Text>
             <Text style={styles.gameItem}>🕵️ Impostor Game</Text>
             <Text style={styles.gameItem}>🃏 Blackjack</Text>
           </View>
