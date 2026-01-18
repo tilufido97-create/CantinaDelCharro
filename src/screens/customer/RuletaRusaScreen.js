@@ -8,7 +8,7 @@ import { Accelerometer } from 'expo-sensors';
 import { COLORS, TYPOGRAPHY, SPACING, BORDER_RADIUS } from '../../constants/theme';
 import Button from '../../components/common/Button';
 
-export default function RuletaRusaScreen() {
+export default function RuletaRusaScreen({ navigation }) {
   const [showRules, setShowRules] = useState(true);
   const [showModes, setShowModes] = useState(false);
   const [showInput, setShowInput] = useState(false);
@@ -218,6 +218,12 @@ export default function RuletaRusaScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
+        <TouchableOpacity 
+          style={styles.backButton}
+          onPress={() => navigation.goBack()}
+        >
+          <Text style={styles.backButtonText}>← Volver</Text>
+        </TouchableOpacity>
         <Text style={styles.headerTitle}>🔫 Ruleta Rusa</Text>
       </View>
       
@@ -238,11 +244,16 @@ export default function RuletaRusaScreen() {
               
               <View style={styles.ruleItem}>
                 <Text style={styles.ruleNumber}>2.</Text>
-                <Text style={styles.ruleText}>Puedes apuntarte a ti mismo o a otro jugador.</Text>
+                <Text style={styles.ruleText}>Puedes apuntarte a ti mismo como también a otro jugador. Si disparas a otro jugador y no sale la bala, por su cobardía hacia la muerte deberá beber la mitad de lo que se acordó en esa ronda, pero la ronda seguirá después de que él beba. Todo sigue hasta que uno muera.</Text>
               </View>
               
               <View style={styles.ruleItem}>
                 <Text style={styles.ruleNumber}>3.</Text>
+                <Text style={styles.ruleText}>En cada ronda solo hay 6 disparos. Si en los primeros 5 disparos no sale la bala, en la 6ta bala sí saldrá el tiro.</Text>
+              </View>
+              
+              <View style={styles.ruleItem}>
+                <Text style={styles.ruleNumber}>4.</Text>
                 <Text style={styles.ruleText}>Si sale el disparo, el jugador impactado debe tomar lo acordado en esa ronda.</Text>
               </View>
               
@@ -362,6 +373,17 @@ export default function RuletaRusaScreen() {
             <View style={styles.deadOverlay}>
               <Text style={styles.deadText}>💀</Text>
               <Text style={styles.deadSubtext}>Estás muerto</Text>
+              
+              <View style={styles.drinkInfo}>
+                <Text style={styles.drinkTitle}>🍺 Debes beber:</Text>
+                <Text style={styles.drinkAmount}>
+                  {gameData?.mode === 'vasos' 
+                    ? `${gameData.value} ${gameData.value === '1' ? 'vaso' : 'vasos'}`
+                    : `${gameData.value}% (${(parseFloat(gameData.value) / 100).toFixed(2)} ${(parseFloat(gameData.value) / 100) <= 1 ? 'vaso' : 'vasos'})`
+                  }
+                </Text>
+              </View>
+              
               <Button
                 title="Terminar"
                 onPress={handleGameEnd}
@@ -381,10 +403,20 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.bg.primary,
   },
   header: {
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingHorizontal: SPACING.lg,
     paddingVertical: SPACING.md,
     borderBottomWidth: 1,
     borderBottomColor: COLORS.bg.tertiary,
+  },
+  backButton: {
+    marginRight: SPACING.md,
+  },
+  backButtonText: {
+    fontSize: TYPOGRAPHY.sizes.base,
+    color: COLORS.accent.gold,
+    fontWeight: TYPOGRAPHY.weights.semibold,
   },
   headerTitle: {
     fontSize: TYPOGRAPHY.sizes['2xl'],
@@ -586,17 +618,36 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(139, 0, 0, 0.9)',
     justifyContent: 'center',
     alignItems: 'center',
-    padding: SPACING.xl,
+    padding: SPACING.lg,
   },
   deadText: {
-    fontSize: 120,
-    marginBottom: SPACING.lg,
+    fontSize: 80,
+    marginBottom: SPACING.md,
   },
   deadSubtext: {
     fontSize: TYPOGRAPHY.sizes['3xl'],
     color: COLORS.text.primary,
     fontWeight: TYPOGRAPHY.weights.bold,
     textAlign: 'center',
-    marginBottom: SPACING.xl,
+    marginBottom: SPACING.md,
+  },
+  drinkInfo: {
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    borderRadius: BORDER_RADIUS.lg,
+    padding: SPACING.md,
+    marginBottom: SPACING.lg,
+    alignItems: 'center',
+  },
+  drinkTitle: {
+    fontSize: TYPOGRAPHY.sizes.lg,
+    color: COLORS.accent.gold,
+    fontWeight: TYPOGRAPHY.weights.bold,
+    marginBottom: SPACING.sm,
+  },
+  drinkAmount: {
+    fontSize: TYPOGRAPHY.sizes.xl,
+    color: COLORS.text.primary,
+    fontWeight: TYPOGRAPHY.weights.bold,
+    textAlign: 'center',
   },
 });
