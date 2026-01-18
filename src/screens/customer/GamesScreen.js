@@ -2,8 +2,9 @@ import React from 'react';
 import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { COLORS, TYPOGRAPHY, SPACING, BORDER_RADIUS } from '../../constants/theme';
+import Button from '../../components/common/Button';
 
-export default function GamesScreen() {
+export default function GamesScreen({ navigation }) {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
@@ -14,13 +15,33 @@ export default function GamesScreen() {
         style={styles.content}
         contentContainerStyle={styles.contentContainer}
       >
-        <View style={styles.comingSoonCard}>
-          <Text style={styles.iconLarge}>🎮</Text>
+        {/* Juegos Disponibles */}
+        <View style={styles.availableGamesCard}>
+          <Text style={styles.sectionTitle}>🎯 Juegos Disponibles</Text>
           
-          <Text style={styles.comingSoonTitle}>Próximamente</Text>
+          <View style={styles.gameButtonsContainer}>
+            <Button
+              title="🃏 Poker"
+              onPress={() => navigation.navigate('Poker')}
+              variant="primary"
+              fullWidth
+            />
+            
+            <Button
+              title="🔫 Ruleta Rusa"
+              onPress={() => navigation.navigate('RuletaRusa')}
+              variant="outline"
+              fullWidth
+            />
+          </View>
+        </View>
+
+        {/* Juegos Próximamente */}
+        <View style={styles.comingSoonCard}>
+          <Text style={styles.sectionTitle}>⏳ Próximamente</Text>
           
           <Text style={styles.comingSoonText}>
-            6 juegos sociales están en camino:
+            4 juegos sociales más están en camino:
           </Text>
 
           <View style={styles.gamesList}>
@@ -29,7 +50,7 @@ export default function GamesScreen() {
             <Text style={styles.gameItem}>📸 Shot Challenge</Text>
             <Text style={styles.gameItem}>🧠 Cultura Chupística</Text>
             <Text style={styles.gameItem}>🕵️ Impostor Game</Text>
-            <Text style={styles.gameItem}>🃏 Poker & Blackjack</Text>
+            <Text style={styles.gameItem}>🃏 Blackjack</Text>
           </View>
 
           <Text style={styles.phaseInfo}>Disponible en Fase 6</Text>
@@ -60,9 +81,13 @@ const styles = StyleSheet.create({
   },
   contentContainer: {
     padding: SPACING.lg,
-    alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: '80%',
+  },
+  availableGamesCard: {
+    backgroundColor: COLORS.bg.secondary,
+    borderRadius: BORDER_RADIUS.xl,
+    padding: SPACING.xl,
+    width: '100%',
+    marginBottom: SPACING.lg,
   },
   comingSoonCard: {
     backgroundColor: COLORS.bg.secondary,
@@ -71,16 +96,21 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     width: '100%',
   },
+  sectionTitle: {
+    fontSize: TYPOGRAPHY.sizes.xl,
+    fontWeight: TYPOGRAPHY.weights.bold,
+    color: COLORS.text.primary,
+    marginBottom: SPACING.lg,
+    textAlign: 'center',
+  },
+  gameButtonsContainer: {
+    gap: SPACING.md,
+  },
   iconLarge: {
     fontSize: 80,
     marginBottom: SPACING.lg,
   },
-  comingSoonTitle: {
-    fontSize: TYPOGRAPHY.sizes['3xl'],
-    fontWeight: TYPOGRAPHY.weights.bold,
-    color: COLORS.text.primary,
-    marginBottom: SPACING.sm,
-  },
+
   comingSoonText: {
     fontSize: TYPOGRAPHY.sizes.base,
     color: COLORS.text.secondary,

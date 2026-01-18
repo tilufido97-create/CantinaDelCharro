@@ -6,6 +6,8 @@ import HomeScreen from '../screens/customer/HomeScreen';
 import CatalogScreen from '../screens/customer/CatalogScreen';
 import MixologyAssistantScreen from '../screens/customer/MixologyAssistantScreen';
 import GamesScreen from '../screens/customer/GamesScreen';
+import PokerScreen from '../screens/customer/PokerScreen';
+import RuletaRusaScreen from '../screens/customer/RuletaRusaScreen';
 import ProfileScreen from '../screens/customer/ProfileScreen';
 import CheckoutScreen from '../screens/customer/CheckoutScreen';
 import AddressScreen from '../screens/customer/AddressScreen';
@@ -96,6 +98,8 @@ export default function CustomerNavigator() {
       }}
     >
       <Stack.Screen name="MainTabs" component={TabNavigator} />
+      <Stack.Screen name="Poker" component={PokerScreen} />
+      <Stack.Screen name="RuletaRusa" component={RuletaRusaScreen} />
       <Stack.Screen name="Checkout" component={CheckoutScreen} />
       <Stack.Screen name="Address" component={AddressScreen} />
       <Stack.Screen name="PaymentMethod" component={PaymentMethodScreen} />
