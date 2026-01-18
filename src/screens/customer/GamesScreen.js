@@ -21,16 +21,9 @@ export default function GamesScreen({ navigation }) {
           
           <View style={styles.gameButtonsContainer}>
             <Button
-              title="🃏 Poker"
-              onPress={() => navigation.navigate('Poker')}
-              variant="primary"
-              fullWidth
-            />
-            
-            <Button
               title="🔫 Ruleta Rusa"
               onPress={() => navigation.navigate('RuletaRusa')}
-              variant="outline"
+              variant="primary"
               fullWidth
             />
             
@@ -40,26 +33,53 @@ export default function GamesScreen({ navigation }) {
               variant="outline"
               fullWidth
             />
+            
+            <Button
+              title="🃏 Poker"
+              onPress={() => navigation.navigate('Poker')}
+              variant="outline"
+              fullWidth
+            />
+            
+            <Button
+              title="🎰 Blackjack"
+              onPress={() => navigation.navigate('Blackjack')}
+              variant="outline"
+              fullWidth
+            />
+            
+            <Button
+              title="🍹 Mixology Master"
+              onPress={() => navigation.navigate('MixologyMaster')}
+              variant="outline"
+              fullWidth
+            />
+            
+            <Button
+              title="🎯 Shot Challenge"
+              onPress={() => navigation.navigate('ShotChallenge')}
+              variant="outline"
+              fullWidth
+            />
+            
+            <Button
+              title="👤 Impostor Game"
+              onPress={() => navigation.navigate('ImpostorGame')}
+              variant="outline"
+              fullWidth
+            />
           </View>
         </View>
 
-        {/* Juegos Próximamente */}
+        {/* Info */}
         <View style={styles.comingSoonCard}>
-          <Text style={styles.sectionTitle}>⏳ Próximamente</Text>
+          <Text style={styles.sectionTitle}>🎮 FASE 6</Text>
           
           <Text style={styles.comingSoonText}>
-            3 juegos sociales más están en camino:
+            7 juegos disponibles. ¡Diviértete y gana puntos!
           </Text>
 
-          <View style={styles.gamesList}>
-            <Text style={styles.gameItem}>🎰 Cantina Roulette</Text>
-            <Text style={styles.gameItem}>🍹 Mixology Master</Text>
-            <Text style={styles.gameItem}>📸 Shot Challenge</Text>
-            <Text style={styles.gameItem}>🕵️ Impostor Game</Text>
-            <Text style={styles.gameItem}>🃏 Blackjack</Text>
-          </View>
-
-          <Text style={styles.phaseInfo}>Disponible en Fase 6</Text>
+          <Text style={styles.phaseInfo}>✅ 7 juegos activos</Text>
         </View>
       </ScrollView>
     </SafeAreaView>

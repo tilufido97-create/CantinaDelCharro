@@ -6,7 +6,6 @@ import HomeScreen from '../screens/customer/HomeScreen';
 import CatalogScreen from '../screens/customer/CatalogScreen';
 import MixologyAssistantScreen from '../screens/customer/MixologyAssistantScreen';
 import GamesScreen from '../screens/customer/GamesScreen';
-import PokerScreen from '../screens/customer/PokerScreen';
 import RuletaRusaScreen from '../screens/customer/RuletaRusaScreen';
 import CulturaChupisticaScreen from '../screens/customer/CulturaChupisticaScreen';
 import ProfileScreen from '../screens/customer/ProfileScreen';
@@ -15,6 +14,11 @@ import AddressScreen from '../screens/customer/AddressScreen';
 import PaymentMethodScreen from '../screens/customer/PaymentMethodScreen';
 import OrderConfirmationScreen from '../screens/customer/OrderConfirmationScreen';
 import OrderTrackingScreen from '../screens/customer/OrderTrackingScreen';
+import PokerScreen from '../screens/games/PokerScreen';
+import BlackjackScreen from '../screens/games/BlackjackScreen';
+import MixologyMasterScreen from '../screens/games/MixologyMasterScreen';
+import ShotChallengeScreen from '../screens/games/ShotChallengeScreen';
+import ImpostorGameScreen from '../screens/games/ImpostorGameScreen';
 import { COLORS } from '../constants/theme';
 
 const Tab = createBottomTabNavigator();
@@ -99,9 +103,13 @@ export default function CustomerNavigator() {
       }}
     >
       <Stack.Screen name="MainTabs" component={TabNavigator} />
-      <Stack.Screen name="Poker" component={PokerScreen} />
       <Stack.Screen name="RuletaRusa" component={RuletaRusaScreen} />
       <Stack.Screen name="CulturaChupistica" component={CulturaChupisticaScreen} />
+      <Stack.Screen name="Poker" component={PokerScreen} />
+      <Stack.Screen name="Blackjack" component={BlackjackScreen} />
+      <Stack.Screen name="MixologyMaster" component={MixologyMasterScreen} />
+      <Stack.Screen name="ShotChallenge" component={ShotChallengeScreen} />
+      <Stack.Screen name="ImpostorGame" component={ImpostorGameScreen} />
       <Stack.Screen name="Checkout" component={CheckoutScreen} />
       <Stack.Screen name="Address" component={AddressScreen} />
       <Stack.Screen name="PaymentMethod" component={PaymentMethodScreen} />
