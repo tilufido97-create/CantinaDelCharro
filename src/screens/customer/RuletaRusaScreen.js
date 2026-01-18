@@ -1,7 +1,10 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, Alert, Dimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Video } from 'expo-av';
+import * as ScreenOrientation from 'expo-screen-orientation';
+import * as Haptics from 'expo-haptics';
+import { Accelerometer } from 'expo-sensors';
 import { COLORS, TYPOGRAPHY, SPACING, BORDER_RADIUS } from '../../constants/theme';
 import Button from '../../components/common/Button';
 
@@ -11,6 +14,8 @@ export default function RuletaRusaScreen() {
   const [showInput, setShowInput] = useState(false);
   const [showGame, setShowGame] = useState(false);
   const [showDecision, setShowDecision] = useState(false);
+  const [showSurvived, setShowSurvived] = useState(false);
+  const [showDead, setShowDead] = useState(false);
   
   const [selectedMode, setSelectedMode] = useState('');
   const [inputValue, setInputValue] = useState('');
@@ -21,6 +26,8 @@ export default function RuletaRusaScreen() {
   
   const videoRef = useRef(null);
   const decisionTimer = useRef(null);
+  const accelerometerSubscription = useRef(null);
+  const vibrationTimer = useRef(null);
 
   const handleStartGame = () => {
     setShowRules(false);
@@ -33,11 +40,14 @@ export default function RuletaRusaScreen() {
     setShowInput(true);
   };
 
-  const handleStartRound = () => {
+  const handleStartRound = async () => {
     if (!inputValue || inputValue <= 0) {
       Alert.alert('Error', 'Ingresa un valor válido');
       return;
     }
+    
+    // Cambiar a orientación horizontal
+    await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.LANDSCAPE);
     
     setGameData({
       mode: selectedMode,
@@ -56,6 +66,13 @@ export default function RuletaRusaScreen() {
       decisionTimer.current = setTimeout(() => {
         setShowDecision(false);
       }, 3000);
+    } else if (videoPhase === 3) {
+      // Después del pistoler3, mostrar resultado
+      if (hasFired) {
+        // Vibrar por 2 segundos cuando sale el disparo
+        startVibration();
+        setShowDead(true);
+      }
     }
   };
 
@@ -64,33 +81,119 @@ export default function RuletaRusaScreen() {
     
     clearTimeout(decisionTimer.current);
     setShowDecision(false);
-    setCurrentShot(prev => prev + 1);
     
-    // Lógica del disparo
     const newShot = currentShot + 1;
+    setCurrentShot(newShot);
+    
     let willFire = false;
     
     if (newShot >= 6) {
       // En el 6to disparo, si no ha salido antes, debe salir
       willFire = !hasFired;
     } else {
-      // En los primeros 5, es aleatorio
-      willFire = Math.random() < 0.2; // 20% de probabilidad
+      // En los primeros 5, es aleatorio (30% de probabilidad)
+      willFire = Math.random() < 0.3;
+      console.log(`Disparo ${newShot}: ${willFire ? 'BANG!' : 'Click'}`);
     }
     
     if (willFire) {
       setHasFired(true);
+      setVideoPhase(3);
+    } else {
+      // No disparó, mostrar mensaje de supervivencia
+      setShowSurvived(true);
+      setTimeout(() => {
+        setShowSurvived(false);
+        setVideoPhase(1); // Reiniciar secuencia
+      }, 2000);
     }
-    
-    setVideoPhase(3);
   };
 
-  const resetGame = () => {
+  const handleSurvivedClose = () => {
+    setShowSurvived(false);
+    setVideoPhase(1);
+  };
+
+  const handleGameEnd = async () => {
+    // Volver a orientación vertical
+    await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT);
+    
+    setShowDead(false);
+    setShowGame(false);
+    setShowModes(true);
+    setCurrentShot(0);
+    setHasFired(false);
+    setVideoPhase(1);
+  };
+
+  // Cleanup al desmontar el componente
+  useEffect(() => {
+    return () => {
+      ScreenOrientation.unlockAsync();
+      if (accelerometerSubscription.current) {
+        accelerometerSubscription.current.remove();
+      }
+      if (vibrationTimer.current) {
+        clearInterval(vibrationTimer.current);
+      }
+    };
+  }, []);
+
+  // Configurar acelerómetro cuando se muestra la decisión
+  useEffect(() => {
+    if (showDecision) {
+      startShakeDetection();
+    } else {
+      stopShakeDetection();
+    }
+  }, [showDecision]);
+
+  const startShakeDetection = () => {
+    Accelerometer.setUpdateInterval(100);
+    accelerometerSubscription.current = Accelerometer.addListener(({ x, y, z }) => {
+      const acceleration = Math.sqrt(x * x + y * y + z * z);
+      // Umbral más alto para evitar conflictos con el menú de Expo
+      if (acceleration > 3.5) {
+        handleShake();
+      }
+    });
+  };
+
+  const stopShakeDetection = () => {
+    if (accelerometerSubscription.current) {
+      accelerometerSubscription.current.remove();
+      accelerometerSubscription.current = null;
+    }
+  };
+
+  const handleShake = () => {
+    if (showDecision) {
+      handleScreenPress();
+    }
+  };
+
+  const startVibration = () => {
+    let count = 0;
+    vibrationTimer.current = setInterval(() => {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+      count++;
+      if (count >= 20) { // 20 vibraciones en 2 segundos (cada 100ms)
+        clearInterval(vibrationTimer.current);
+      }
+    }, 100);
+  };
+
+  const resetGame = async () => {
+    // Volver a orientación vertical
+    await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT);
+    
     setShowRules(true);
     setShowModes(false);
     setShowInput(false);
     setShowGame(false);
     setShowDecision(false);
+    setShowSurvived(false);
+    setShowDead(false);
     setSelectedMode('');
     setInputValue('');
     setCurrentShot(0);
@@ -228,6 +331,7 @@ export default function RuletaRusaScreen() {
             style={styles.video}
             shouldPlay
             isLooping={false}
+            resizeMode="cover"
             onPlaybackStatusUpdate={(status) => {
               if (status.didJustFinish) {
                 handleVideoEnd();
@@ -243,8 +347,27 @@ export default function RuletaRusaScreen() {
             >
               <Text style={styles.decisionText}>💀</Text>
               <Text style={styles.decisionSubtext}>Decide tu destino</Text>
-              <Text style={styles.decisionTimer}>Toca la pantalla</Text>
+              <Text style={styles.decisionTimer}>Toca la pantalla o sacude el teléfono</Text>
             </TouchableOpacity>
+          )}
+          
+          {showSurvived && (
+            <View style={styles.survivedOverlay}>
+              <Text style={styles.survivedText}>😅</Text>
+              <Text style={styles.survivedSubtext}>Te salvaste por poco</Text>
+            </View>
+          )}
+          
+          {showDead && (
+            <View style={styles.deadOverlay}>
+              <Text style={styles.deadText}>💀</Text>
+              <Text style={styles.deadSubtext}>Estás muerto</Text>
+              <Button
+                title="Terminar"
+                onPress={handleGameEnd}
+                variant="primary"
+              />
+            </View>
           )}
         </View>
       )}
@@ -402,6 +525,11 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.bg.primary,
   },
   video: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    bottom: 0,
+    right: 0,
     width: '100%',
     height: '100%',
   },
@@ -428,5 +556,47 @@ const styles = StyleSheet.create({
   decisionTimer: {
     fontSize: TYPOGRAPHY.sizes.base,
     color: COLORS.accent.gold,
+  },
+  survivedOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.9)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  survivedText: {
+    fontSize: 120,
+    marginBottom: SPACING.md,
+  },
+  survivedSubtext: {
+    fontSize: TYPOGRAPHY.sizes['2xl'],
+    color: COLORS.accent.gold,
+    fontWeight: TYPOGRAPHY.weights.bold,
+    textAlign: 'center',
+  },
+  deadOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(139, 0, 0, 0.9)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: SPACING.xl,
+  },
+  deadText: {
+    fontSize: 120,
+    marginBottom: SPACING.lg,
+  },
+  deadSubtext: {
+    fontSize: TYPOGRAPHY.sizes['3xl'],
+    color: COLORS.text.primary,
+    fontWeight: TYPOGRAPHY.weights.bold,
+    textAlign: 'center',
+    marginBottom: SPACING.xl,
   },
 });
