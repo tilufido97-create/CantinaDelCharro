@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, TextInput } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, TextInput } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import KeyboardScrollWrapper from '../../components/common/KeyboardScrollWrapper';
 import { COLORS, TYPOGRAPHY, SPACING, BORDER_RADIUS } from '../../constants/theme';
 import { PAYMENT_METHODS } from '../../constants/mockData';
 import Button from '../../components/common/Button';
@@ -25,8 +26,9 @@ export default function PaymentMethodScreen({ navigation }) {
         <View style={{ width: 60 }} />
       </View>
 
-      <ScrollView style={styles.scroll}>
-        {PAYMENT_METHODS.map((method) => (
+      <KeyboardScrollWrapper>
+        <View style={styles.content}>
+          {PAYMENT_METHODS.map((method) => (
           <TouchableOpacity
             key={method.id}
             style={[styles.card, selected === method.id && styles.cardSelected]}
@@ -71,7 +73,10 @@ export default function PaymentMethodScreen({ navigation }) {
             )}
           </TouchableOpacity>
         ))}
-      </ScrollView>
+
+        <View style={{ height: 100 }} />
+      </View>
+      </KeyboardScrollWrapper>
 
       <View style={styles.footer}>
         <Button
@@ -89,7 +94,7 @@ const styles = StyleSheet.create({
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: SPACING.lg, paddingVertical: SPACING.md },
   backButton: { fontSize: TYPOGRAPHY.sizes.base, color: COLORS.accent.gold, fontWeight: TYPOGRAPHY.weights.medium },
   headerTitle: { fontSize: TYPOGRAPHY.sizes.xl, fontWeight: TYPOGRAPHY.weights.bold, color: COLORS.text.primary },
-  scroll: { flex: 1, paddingHorizontal: SPACING.lg },
+  content: { paddingHorizontal: SPACING.lg },
   card: { backgroundColor: COLORS.bg.secondary, borderRadius: BORDER_RADIUS.lg, padding: SPACING.lg, marginBottom: SPACING.md, borderWidth: 2, borderColor: 'transparent' },
   cardSelected: { borderColor: COLORS.accent.gold, backgroundColor: COLORS.bg.tertiary },
   cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: SPACING.md },

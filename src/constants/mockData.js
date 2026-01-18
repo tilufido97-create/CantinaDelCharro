@@ -266,12 +266,27 @@ export const QUICK_SUGGESTIONS = [
   'Explicar puntos',
 ];
 
-// Zonas soportadas
-export const SUPPORTED_ZONES = [
-  { id: 1, name: 'Sopocachi', minDistance: 0.5, maxDistance: 3.0 },
-  { id: 2, name: 'Miraflores', minDistance: 1.5, maxDistance: 4.0 },
-  { id: 3, name: 'Arce', minDistance: 0.3, maxDistance: 2.5 }
+// Zonas de La Paz (solo 5 habilitadas)
+export const ALL_ZONES = [
+  { id: 1, name: 'Sopocachi', enabled: true, minDistance: 0.5, maxDistance: 3.0 },
+  { id: 2, name: 'Miraflores', enabled: true, minDistance: 1.5, maxDistance: 4.0 },
+  { id: 3, name: 'Achumani', enabled: true, minDistance: 3.0, maxDistance: 6.0 },
+  { id: 4, name: 'Calacoto', enabled: true, minDistance: 2.5, maxDistance: 5.0 },
+  { id: 5, name: 'Obrajes', enabled: true, minDistance: 2.0, maxDistance: 4.5 },
+  { id: 6, name: 'San Miguel', enabled: false, minDistance: 1.0, maxDistance: 3.5 },
+  { id: 7, name: 'Zona Sur', enabled: false, minDistance: 4.0, maxDistance: 8.0 },
+  { id: 8, name: 'Centro', enabled: false, minDistance: 1.5, maxDistance: 3.0 },
+  { id: 9, name: 'Villa Fátima', enabled: false, minDistance: 3.0, maxDistance: 6.0 },
+  { id: 10, name: 'El Alto', enabled: false, minDistance: 5.0, maxDistance: 10.0 },
+  { id: 11, name: 'Irpavi', enabled: false, minDistance: 3.5, maxDistance: 6.5 },
+  { id: 12, name: 'Cota Cota', enabled: false, minDistance: 3.0, maxDistance: 5.5 },
+  { id: 13, name: 'San Pedro', enabled: false, minDistance: 1.0, maxDistance: 2.5 },
+  { id: 14, name: 'Munaypata', enabled: false, minDistance: 2.0, maxDistance: 4.0 },
+  { id: 15, name: 'Mallasa', enabled: false, minDistance: 6.0, maxDistance: 12.0 },
 ];
+
+// Zonas habilitadas (para compatibilidad)
+export const SUPPORTED_ZONES = ALL_ZONES.filter(z => z.enabled);
 
 // Métodos de pago
 export const PAYMENT_METHODS = [

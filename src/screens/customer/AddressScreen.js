@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Modal, TextInput, Alert } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Modal, TextInput, Alert, KeyboardAvoidingView, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as Location from 'expo-location';
 import { COLORS, TYPOGRAPHY, SPACING, BORDER_RADIUS } from '../../constants/theme';
-import { SUPPORTED_ZONES } from '../../constants/mockData';
 import Button from '../../components/common/Button';
 
 export default function AddressScreen({ navigation }) {
@@ -11,15 +11,63 @@ export default function AddressScreen({ navigation }) {
   const [selectedId, setSelectedId] = useState(null);
   const [modalVisible, setModalVisible] = useState(false);
   const [editingAddress, setEditingAddress] = useState(null);
+  const [location, setLocation] = useState(null);
   
   const [zone, setZone] = useState('');
   const [street, setStreet] = useState('');
   const [number, setNumber] = useState('');
+  const [phone, setPhone] = useState('');
   const [reference, setReference] = useState('');
 
   useEffect(() => {
     loadAddresses();
+    requestLocationPermission();
+    startLocationTracking();
   }, []);
+
+  const requestLocationPermission = async () => {
+    try {
+      const { status: foregroundStatus } = await Location.requestForegroundPermissionsAsync();
+      if (foregroundStatus === 'granted') {
+        const { status: backgroundStatus } = await Location.requestBackgroundPermissionsAsync();
+        if (backgroundStatus === 'granted') {
+          console.log('✅ Permisos de ubicación concedidos (foreground + background)');
+        }
+      }
+    } catch (error) {
+      console.error('Error solicitando permisos:', error);
+    }
+  };
+
+  const startLocationTracking = async () => {
+    try {
+      const { status } = await Location.getForegroundPermissionsAsync();
+      if (status === 'granted') {
+        const currentLocation = await Location.getCurrentPositionAsync({});
+        setLocation(currentLocation.coords);
+        
+        // Guardar ubicación en AsyncStorage para analytics
+        await AsyncStorage.setItem('user_location', JSON.stringify({
+          latitude: currentLocation.coords.latitude,
+          longitude: currentLocation.coords.longitude,
+          timestamp: new Date().toISOString()
+        }));
+
+        // Tracking en segundo plano cada 5 minutos
+        await Location.startLocationUpdatesAsync('background-location-task', {
+          accuracy: Location.Accuracy.Balanced,
+          timeInterval: 300000, // 5 minutos
+          distanceInterval: 100, // 100 metros
+          foregroundService: {
+            notificationTitle: 'La Cantina del Charro',
+            notificationBody: 'Rastreando ubicación para mejor servicio',
+          },
+        });
+      }
+    } catch (error) {
+      console.error('Error iniciando tracking:', error);
+    }
+  };
 
   const loadAddresses = async () => {
     const saved = await AsyncStorage.getItem('user_addresses');
@@ -32,14 +80,20 @@ export default function AddressScreen({ navigation }) {
   };
 
   const getRandomDistance = (zoneName) => {
-    const zoneData = SUPPORTED_ZONES.find(z => z.name === zoneName);
-    if (!zoneData) return 2.0;
-    return (Math.random() * (zoneData.maxDistance - zoneData.minDistance) + zoneData.minDistance).toFixed(1);
+    // Distancia aleatoria entre 1 y 8 km
+    return (Math.random() * 7 + 1).toFixed(1);
   };
 
   const handleSaveAddress = async () => {
-    if (!zone || !street) {
-      Alert.alert('Campos requeridos', 'Por favor completa zona y calle');
+    if (!zone || !street || !number || !phone) {
+      Alert.alert('Campos requeridos', 'Por favor completa todos los campos obligatorios');
+      return;
+    }
+
+    // Validar teléfono boliviano
+    const phoneRegex = /^[67]\d{7}$/;
+    if (!phoneRegex.test(phone)) {
+      Alert.alert('Teléfono inválido', 'Ingresa un número válido (ej: 70123456)');
       return;
     }
 
@@ -48,8 +102,11 @@ export default function AddressScreen({ navigation }) {
       zone,
       street,
       number,
+      phone,
       reference,
       distance: parseFloat(getRandomDistance(zone)),
+      latitude: location?.latitude || null,
+      longitude: location?.longitude || null,
       isDefault: addresses.length === 0
     };
 
@@ -100,6 +157,7 @@ export default function AddressScreen({ navigation }) {
     setZone(address.zone);
     setStreet(address.street);
     setNumber(address.number);
+    setPhone(address.phone || '');
     setReference(address.reference);
     setEditingAddress(address);
     setModalVisible(true);
@@ -109,6 +167,7 @@ export default function AddressScreen({ navigation }) {
     setZone('');
     setStreet('');
     setNumber('');
+    setPhone('');
     setReference('');
   };
 
@@ -160,69 +219,115 @@ export default function AddressScreen({ navigation }) {
 
       <Modal visible={modalVisible} animationType="slide" transparent>
         <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>
-              {editingAddress ? 'Editar dirección' : 'Nueva dirección'}
-            </Text>
+          <KeyboardAvoidingView 
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            style={styles.keyboardView}
+            keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+          >
+            <ScrollView 
+              contentContainerStyle={styles.scrollContent}
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
+              bounces={false}
+            >
+              <View style={styles.modalContent}>
+                <Text style={styles.modalTitle}>
+                  {editingAddress ? 'Editar dirección' : 'Nueva dirección'}
+                </Text>
 
-            <Text style={styles.label}>Zona *</Text>
-            <View style={styles.zoneButtons}>
-              {SUPPORTED_ZONES.map((z) => (
-                <TouchableOpacity
-                  key={z.id}
-                  style={[styles.zoneButton, zone === z.name && styles.zoneButtonSelected]}
-                  onPress={() => setZone(z.name)}
-                >
-                  <Text style={[styles.zoneButtonText, zone === z.name && styles.zoneButtonTextSelected]}>
-                    {z.name}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
+                <Text style={styles.label}>Zona *</Text>
+                <TextInput
+                  style={styles.input}
+                  value={zone}
+                  onChangeText={setZone}
+                  placeholder="Ej: Sopocachi, Miraflores, Calacoto..."
+                  placeholderTextColor={COLORS.text.tertiary}
+                  returnKeyType="next"
+                  autoCapitalize="words"
+                />
 
-            <Text style={styles.label}>Calle/Avenida *</Text>
-            <TextInput
-              style={styles.input}
-              value={street}
-              onChangeText={setStreet}
-              placeholder="Ej: Calle Fernando Guachalla"
-              placeholderTextColor={COLORS.text.tertiary}
-            />
+                <Text style={styles.label}>Calle/Avenida *</Text>
+                <TextInput
+                  style={styles.input}
+                  value={street}
+                  onChangeText={setStreet}
+                  placeholder="Ej: Calle Fernando Guachalla"
+                  placeholderTextColor={COLORS.text.tertiary}
+                  returnKeyType="next"
+                />
 
-            <Text style={styles.label}>Número</Text>
-            <TextInput
-              style={styles.input}
-              value={number}
-              onChangeText={setNumber}
-              placeholder="Ej: 411"
-              placeholderTextColor={COLORS.text.tertiary}
-              keyboardType="numeric"
-            />
+                <Text style={styles.label}>Número *</Text>
+                <TextInput
+                  style={styles.input}
+                  value={number}
+                  onChangeText={setNumber}
+                  placeholder="Ej: 411 (Si no tienes, escribe 0)"
+                  placeholderTextColor={COLORS.text.tertiary}
+                  keyboardType="numeric"
+                  returnKeyType="next"
+                />
 
-            <Text style={styles.label}>Referencia (opcional)</Text>
-            <TextInput
-              style={styles.input}
-              value={reference}
-              onChangeText={setReference}
-              placeholder="Ej: Edificio azul, portón café"
-              placeholderTextColor={COLORS.text.tertiary}
-            />
+                <Text style={styles.label}>Teléfono (WhatsApp) *</Text>
+                <View style={styles.phoneContainer}>
+                  <Text style={styles.phonePrefix}>+591</Text>
+                  <TextInput
+                    style={[styles.input, styles.phoneInput]}
+                    value={phone}
+                    onChangeText={setPhone}
+                    placeholder="70123456"
+                    placeholderTextColor={COLORS.text.tertiary}
+                    keyboardType="phone-pad"
+                    maxLength={8}
+                    returnKeyType="next"
+                  />
+                </View>
+                <Text style={styles.helperText}>
+                  📞 Necesario para coordinar la entrega
+                </Text>
 
-            <View style={styles.modalButtons}>
-              <Button
-                title="Cancelar"
-                variant="outline"
-                onPress={() => setModalVisible(false)}
-                fullWidth
-              />
-              <View style={{ width: SPACING.md }} />
-              <Button
-                title="Guardar"
-                onPress={handleSaveAddress}
-                fullWidth
-              />
-            </View>
-          </View>
+                <Text style={styles.label}>Referencia (opcional)</Text>
+                <TextInput
+                  style={[styles.input, styles.textArea]}
+                  value={reference}
+                  onChangeText={setReference}
+                  placeholder="Ej: Edificio azul, portón café"
+                  placeholderTextColor={COLORS.text.tertiary}
+                  returnKeyType="done"
+                  blurOnSubmit={true}
+                  multiline
+                  numberOfLines={2}
+                />
+
+                {location && (
+                  <View style={styles.locationInfo}>
+                    <Text style={styles.locationText}>
+                      📍 Ubicación GPS guardada
+                    </Text>
+                  </View>
+                )}
+
+                <View style={styles.modalButtons}>
+                  <Button
+                    title="Cancelar"
+                    variant="outline"
+                    onPress={() => {
+                      setModalVisible(false);
+                      resetForm();
+                    }}
+                    fullWidth
+                  />
+                  <View style={{ width: SPACING.md }} />
+                  <Button
+                    title="Guardar"
+                    onPress={handleSaveAddress}
+                    fullWidth
+                  />
+                </View>
+
+                <View style={{ height: 60 }} />
+              </View>
+            </ScrollView>
+          </KeyboardAvoidingView>
         </View>
       </Modal>
     </SafeAreaView>
@@ -251,14 +356,26 @@ const styles = StyleSheet.create({
   actionButton: { fontSize: TYPOGRAPHY.sizes.sm, color: COLORS.accent.gold, fontWeight: TYPOGRAPHY.weights.medium },
   deleteButton: { color: COLORS.error },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.8)', justifyContent: 'flex-end' },
-  modalContent: { backgroundColor: COLORS.bg.secondary, borderTopLeftRadius: BORDER_RADIUS.xl, borderTopRightRadius: BORDER_RADIUS.xl, padding: SPACING.xl },
+  keyboardView: { flex: 1, justifyContent: 'flex-end' },
+  scrollContent: { flexGrow: 1, justifyContent: 'flex-end' },
+  modalContent: { backgroundColor: COLORS.bg.secondary, borderTopLeftRadius: BORDER_RADIUS.xl, borderTopRightRadius: BORDER_RADIUS.xl, padding: SPACING.xl, maxHeight: '90%' },
   modalTitle: { fontSize: TYPOGRAPHY.sizes.xl, fontWeight: TYPOGRAPHY.weights.bold, color: COLORS.text.primary, marginBottom: SPACING.lg },
   label: { fontSize: TYPOGRAPHY.sizes.sm, color: COLORS.text.secondary, marginBottom: SPACING.xs, marginTop: SPACING.md },
   input: { backgroundColor: COLORS.bg.tertiary, borderRadius: BORDER_RADIUS.md, padding: SPACING.md, fontSize: TYPOGRAPHY.sizes.base, color: COLORS.text.primary },
-  zoneButtons: { flexDirection: 'row', gap: SPACING.sm, flexWrap: 'wrap' },
+  textArea: { height: 60, textAlignVertical: 'top' },
+  zoneScroll: { marginBottom: SPACING.sm },
+  zoneButtons: { flexDirection: 'row', gap: SPACING.sm },
   zoneButton: { backgroundColor: COLORS.bg.tertiary, borderRadius: BORDER_RADIUS.md, paddingHorizontal: SPACING.md, paddingVertical: SPACING.sm, borderWidth: 2, borderColor: 'transparent' },
   zoneButtonSelected: { borderColor: COLORS.accent.gold, backgroundColor: COLORS.accent.gold + '20' },
+  zoneButtonDisabled: { opacity: 0.5 },
   zoneButtonText: { fontSize: TYPOGRAPHY.sizes.sm, color: COLORS.text.secondary },
   zoneButtonTextSelected: { color: COLORS.accent.gold, fontWeight: TYPOGRAPHY.weights.semibold },
+  zoneBadge: { fontSize: 9, color: COLORS.text.tertiary, marginTop: 2 },
+  phoneContainer: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm },
+  phonePrefix: { fontSize: TYPOGRAPHY.sizes.base, color: COLORS.text.primary, fontWeight: TYPOGRAPHY.weights.semibold, backgroundColor: COLORS.bg.tertiary, padding: SPACING.md, borderRadius: BORDER_RADIUS.md },
+  phoneInput: { flex: 1 },
+  helperText: { fontSize: TYPOGRAPHY.sizes.xs, color: COLORS.text.tertiary, marginTop: SPACING.xs },
+  locationInfo: { backgroundColor: COLORS.success + '20', padding: SPACING.sm, borderRadius: BORDER_RADIUS.md, marginTop: SPACING.md, alignItems: 'center' },
+  locationText: { fontSize: TYPOGRAPHY.sizes.xs, color: COLORS.success, fontWeight: TYPOGRAPHY.weights.semibold },
   modalButtons: { flexDirection: 'row', marginTop: SPACING.xl },
 });
