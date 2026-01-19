@@ -7,6 +7,8 @@ import * as Haptics from 'expo-haptics';
 import { Accelerometer } from 'expo-sensors';
 import { COLORS, TYPOGRAPHY, SPACING, BORDER_RADIUS } from '../../constants/theme';
 import Button from '../../components/common/Button';
+import LoadingScreen from '../../components/common/LoadingScreen';
+import { useLoading } from '../../hooks/useLoading';
 
 export default function RuletaRusaScreen({ navigation }) {
   const [showRules, setShowRules] = useState(true);
@@ -23,6 +25,8 @@ export default function RuletaRusaScreen({ navigation }) {
   const [gameData, setGameData] = useState(null);
   const [videoPhase, setVideoPhase] = useState(1); // 1: pistoler1, 2: pistoler2, 3: pistoler3
   const [hasFired, setHasFired] = useState(false);
+  
+  const { isLoading, showLoading, hideLoading } = useLoading();
   
   const videoRef = useRef(null);
   const decisionTimer = useRef(null);
@@ -46,16 +50,21 @@ export default function RuletaRusaScreen({ navigation }) {
       return;
     }
     
-    // Cambiar a orientación horizontal
-    await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.LANDSCAPE);
+    showLoading();
     
-    setGameData({
-      mode: selectedMode,
-      value: inputValue
-    });
-    setShowInput(false);
-    setShowGame(true);
-    setVideoPhase(1);
+    setTimeout(async () => {
+      await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.LANDSCAPE);
+      
+      setGameData({
+        mode: selectedMode,
+        value: inputValue
+      });
+      setShowInput(false);
+      setShowGame(true);
+      setVideoPhase(1);
+      
+      hideLoading();
+    }, 2000);
   };
 
   const handleVideoEnd = () => {
@@ -393,6 +402,13 @@ export default function RuletaRusaScreen({ navigation }) {
           )}
         </View>
       )}
+      
+      <LoadingScreen 
+        isVisible={isLoading}
+        onLoadingComplete={hideLoading}
+        duration={2000}
+        type="game"
+      />
     </SafeAreaView>
   );
 }

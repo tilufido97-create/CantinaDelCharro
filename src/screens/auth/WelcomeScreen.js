@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import Button from '../../components/common/Button';
@@ -13,8 +13,11 @@ export default function WelcomeScreen({ navigation }) {
     >
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.content}>
-          <Text style={styles.logo}>💀</Text>
-          <Text style={styles.sombrero}>🤠</Text>
+          <Image 
+            source={require('../../../assets/LogoCharro.png')}
+            style={styles.logo}
+            resizeMode="contain"
+          />
           <Text style={styles.tagline}>
             Donde el trago es ley y el charro, leyenda
           </Text>
@@ -67,9 +70,11 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    marginTop: 50,
   },
   logo: {
-    fontSize: 80,
+    width: 250,
+    height: 250,
     marginBottom: SPACING.sm,
   },
   sombrero: {
