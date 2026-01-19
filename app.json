@@ -4,6 +4,7 @@
     "slug": "cantina-charro",
     "version": "1.0.0",
     "orientation": "portrait",
+    "platforms": ["ios", "android", "web"],
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
     "splash": {
@@ -16,14 +17,44 @@
     ],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.cantinacharro.app"
+      "bundleIdentifier": "com.cantinacharro.app",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "La Cantina del Charro necesita tu ubicación para mostrarte tiendas cercanas y calcular el tiempo de entrega.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "La Cantina del Charro necesita tu ubicación para rastrear tu pedido en tiempo real.",
+        "NSCameraUsageDescription": "La Cantina del Charro necesita acceso a tu cámara para escanear códigos QR y jugar Shot Challenge.",
+        "NSPhotoLibraryUsageDescription": "La Cantina del Charro necesita acceso a tu galería para subir fotos de perfil."
+      }
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#0A0A0A"
       },
-      "package": "com.cantinacharro.app"
-    }
+      "package": "com.cantinacharro.app",
+      "permissions": [
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION",
+        "CAMERA",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE"
+      ]
+    },
+    "web": {
+      "favicon": "./assets/favicon.png",
+      "name": "Admin Panel - La Cantina del Charro",
+      "shortName": "Cantina Admin",
+      "lang": "es",
+      "scope": "/",
+      "themeColor": "#FFB800",
+      "backgroundColor": "#0A0A0A"
+    },
+    "plugins": [
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "La Cantina del Charro necesita tu ubicación para mostrarte tiendas cercanas y rastrear tu pedido."
+        }
+      ]
+    ]
   }
 }

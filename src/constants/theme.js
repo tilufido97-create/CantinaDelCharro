@@ -2,17 +2,26 @@
 
 export const COLORS = {
   // Backgrounds
+  background: {
+    primary: '#0A0A0A',
+    secondary: '#1C1C1E',
+    tertiary: '#2C2C2E',
+  },
   bg: {
     primary: '#0A0A0A',
     secondary: '#1C1C1E',
     tertiary: '#2C2C2E',
   },
+  bgPrimary: '#0A0A0A',
+  bgSecondary: '#1C1C1E',
+  bgTertiary: '#2C2C2E',
   // Acentos
   accent: {
     gold: '#FFB800',
     goldLight: '#FFC933',
     amber: '#FF9500',
   },
+  accentGold: '#FFB800',
   // Textos
   text: {
     primary: '#FFFFFF',
@@ -20,7 +29,16 @@ export const COLORS = {
     tertiary: '#8E8E93',
     disabled: '#3A3A3C',
   },
+  textPrimary: '#FFFFFF',
+  textSecondary: '#E5E5EA',
+  textTertiary: '#8E8E93',
   // Semánticos
+  semantic: {
+    success: '#34C759',
+    warning: '#FF9500',
+    error: '#FF3B30',
+    info: '#007AFF',
+  },
   success: '#34C759',
   warning: '#FF9500',
   error: '#FF3B30',
