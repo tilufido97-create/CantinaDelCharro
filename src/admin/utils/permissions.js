@@ -34,6 +34,14 @@ export const ROLES = {
       'refund_orders',
       'view_users'
     ]
+  },
+  
+  CONTENT_MANAGER: {
+    name: 'Gestor de Contenido',
+    permissions: [
+      'manage_products',
+      'manage_promos'
+    ]
   }
 };
 
@@ -53,4 +61,34 @@ export const hasAnyPermission = (user, permissions) => {
 
 export const getRoleName = (roleKey) => {
   return ROLES[roleKey]?.name || 'Sin rol';
+};
+
+export const canAccessRoute = (userRole, routeName) => {
+  const routePermissions = {
+    'AdminDashboard': '*',
+    'Products': ['manage_products'],
+    'Orders': ['manage_orders', 'view_orders'],
+    'Users': ['manage_users'],
+    'Deliveries': ['approve_deliveries', 'view_delivery_stats'],
+    'Promotions': ['manage_promos'],
+    'Analytics': ['view_analytics'],
+    'Admins': ['*']
+  };
+  
+  const requiredPerms = routePermissions[routeName];
+  if (!requiredPerms) return false;
+  if (requiredPerms === '*') return userRole === 'SUPER_ADMIN';
+  
+  const userPermissions = ROLES[userRole]?.permissions || [];
+  if (userPermissions.includes('*')) return true;
+  
+  return requiredPerms.some(perm => userPermissions.includes(perm));
+};
+
+export const getPermissionsForRole = (role) => {
+  return ROLES[role]?.permissions || [];
+};
+
+export const getAllRoles = () => {
+  return Object.keys(ROLES);
 };

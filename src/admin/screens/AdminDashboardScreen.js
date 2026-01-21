@@ -78,6 +78,7 @@ const AdminDashboardScreen = () => {
   const navigation = useNavigation();
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [periodFilter, setPeriodFilter] = useState('today');
   const [stats, setStats] = useState({
     todaySales: 0,
     todayOrders: 0,
@@ -91,6 +92,42 @@ const AdminDashboardScreen = () => {
   const [topProducts, setTopProducts] = useState([]);
   const [pendingDeliveries, setPendingDeliveries] = useState(0);
   const [outOfStock, setOutOfStock] = useState(0);
+  const [showPeriodMenu, setShowPeriodMenu] = useState(false);
+
+  const PERIOD_OPTIONS = [
+    { value: 'today', label: 'Hoy' },
+    { value: 'yesterday', label: 'Ayer' },
+    { value: '7days', label: 'Últimos 7 días' },
+    { value: '30days', label: 'Últimos 30 días' },
+    { value: 'month', label: 'Este mes' }
+  ];
+
+  const getDateRange = (period) => {
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    
+    switch(period) {
+      case 'today':
+        return { start: today, end: new Date() };
+      case 'yesterday':
+        const yesterday = new Date(today);
+        yesterday.setDate(yesterday.getDate() - 1);
+        return { start: yesterday, end: today };
+      case '7days':
+        const week = new Date(today);
+        week.setDate(week.getDate() - 7);
+        return { start: week, end: new Date() };
+      case '30days':
+        const month = new Date(today);
+        month.setDate(month.getDate() - 30);
+        return { start: month, end: new Date() };
+      case 'month':
+        const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+        return { start: monthStart, end: new Date() };
+      default:
+        return { start: today, end: new Date() };
+    }
+  };
 
   const loadDashboardData = async () => {
     try {
@@ -102,35 +139,39 @@ const AdminDashboardScreen = () => {
       const usersData = await AsyncStorage.getItem('all_users');
       const users = usersData ? JSON.parse(usersData) : [];
       
-      const today = new Date().toDateString();
-      const todayOrders = orders.filter(o => 
-        new Date(o.createdAt).toDateString() === today
-      );
+      const { start, end } = getDateRange(periodFilter);
+      const periodOrders = orders.filter(o => {
+        const orderDate = new Date(o.createdAt);
+        return orderDate >= start && orderDate <= end;
+      });
       
-      const todaySales = todayOrders.reduce((sum, o) => sum + o.total, 0);
-      const newUsers = users.filter(u => 
-        new Date(u.createdAt).toDateString() === today
-      ).length;
+      const periodSales = periodOrders.reduce((sum, o) => sum + o.total, 0);
+      const newUsers = users.filter(u => {
+        const userDate = new Date(u.createdAt);
+        return userDate >= start && userDate <= end;
+      }).length;
       
-      const activeDeliveries = todayOrders.filter(o => o.status === 'on_way').length;
+      const activeDeliveries = periodOrders.filter(o => o.status === 'on_way').length;
       
-      const yesterday = new Date(Date.now() - 86400000).toDateString();
-      const yesterdayOrders = orders.filter(o => 
-        new Date(o.createdAt).toDateString() === yesterday
-      );
-      const yesterdaySales = yesterdayOrders.reduce((sum, o) => sum + o.total, 0);
+      const prevPeriod = periodFilter === 'today' ? 'yesterday' : 'today';
+      const { start: prevStart, end: prevEnd } = getDateRange(prevPeriod);
+      const prevOrders = orders.filter(o => {
+        const orderDate = new Date(o.createdAt);
+        return orderDate >= prevStart && orderDate <= prevEnd;
+      });
+      const prevSales = prevOrders.reduce((sum, o) => sum + o.total, 0);
       
-      const salesGrowth = yesterdaySales > 0 
-        ? ((todaySales - yesterdaySales) / yesterdaySales * 100).toFixed(1)
+      const salesGrowth = prevSales > 0 
+        ? ((periodSales - prevSales) / prevSales * 100).toFixed(1)
         : 0;
       
-      const ordersGrowth = yesterdayOrders.length > 0
-        ? ((todayOrders.length - yesterdayOrders.length) / yesterdayOrders.length * 100).toFixed(1)
+      const ordersGrowth = prevOrders.length > 0
+        ? ((periodOrders.length - prevOrders.length) / prevOrders.length * 100).toFixed(1)
         : 0;
       
       setStats({
-        todaySales,
-        todayOrders: todayOrders.length,
+        todaySales: periodSales,
+        todayOrders: periodOrders.length,
         newUsers,
         activeDeliveries,
         salesGrowth: parseFloat(salesGrowth),
@@ -188,7 +229,7 @@ const AdminDashboardScreen = () => {
     
     const interval = setInterval(loadDashboardData, 30000);
     return () => clearInterval(interval);
-  }, []);
+  }, [periodFilter]);
 
   if (!user) return null;
 
@@ -196,14 +237,56 @@ const AdminDashboardScreen = () => {
     <AdminLayout title="Dashboard" user={user}>
       <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
-          <Text style={styles.welcomeText}>Bienvenido, {user.name} 👋</Text>
-          <Text style={styles.dateText}>
-            Resumen del día - {new Date().toLocaleDateString('es-BO', {
-              day: 'numeric',
-              month: 'long',
-              year: 'numeric'
-            })}
-          </Text>
+          <View>
+            <Text style={styles.welcomeText}>Bienvenido, {user.name} 👋</Text>
+            <Text style={styles.dateText}>
+              Resumen del día - {new Date().toLocaleDateString('es-BO', {
+                day: 'numeric',
+                month: 'long',
+                year: 'numeric'
+              })}
+            </Text>
+          </View>
+          
+          <View>
+            <TouchableOpacity 
+              style={styles.filterButton}
+              onPress={() => setShowPeriodMenu(!showPeriodMenu)}
+            >
+              <Text style={styles.filterButtonText}>
+                {PERIOD_OPTIONS.find(p => p.value === periodFilter)?.label}
+              </Text>
+              <Ionicons name="chevron-down" size={20} color={COLORS.textPrimary} />
+            </TouchableOpacity>
+            
+            {showPeriodMenu && (
+              <View style={styles.periodMenu}>
+                {PERIOD_OPTIONS.map(option => (
+                  <TouchableOpacity
+                    key={option.value}
+                    style={[
+                      styles.periodOption,
+                      periodFilter === option.value && styles.periodOptionActive
+                    ]}
+                    onPress={() => {
+                      setPeriodFilter(option.value);
+                      setShowPeriodMenu(false);
+                    }}
+                  >
+                    <Text style={[
+                      styles.periodOptionText,
+                      periodFilter === option.value && styles.periodOptionTextActive
+                    ]}>
+                      {option.label}
+                    </Text>
+                    {periodFilter === option.value && (
+                      <Ionicons name="checkmark" size={20} color={COLORS.accentGold} />
+                    )}
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
+          </View>
         </View>
 
         <View style={styles.statsGrid}>
@@ -323,7 +406,62 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
     marginBottom: 32,
+  },
+  filterButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.bgSecondary,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: COLORS.bgTertiary,
+    gap: 8,
+    cursor: 'pointer',
+  },
+  filterButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: COLORS.textPrimary,
+  },
+  periodMenu: {
+    position: 'absolute',
+    top: 50,
+    right: 0,
+    backgroundColor: COLORS.bgSecondary,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: COLORS.bgTertiary,
+    minWidth: 200,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    zIndex: 1000,
+  },
+  periodOption: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.bgTertiary,
+    cursor: 'pointer',
+  },
+  periodOptionActive: {
+    backgroundColor: COLORS.accentGold + '10',
+  },
+  periodOptionText: {
+    fontSize: 14,
+    color: COLORS.textSecondary,
+  },
+  periodOptionTextActive: {
+    color: COLORS.accentGold,
+    fontWeight: '600',
   },
   welcomeText: {
     fontSize: 32,

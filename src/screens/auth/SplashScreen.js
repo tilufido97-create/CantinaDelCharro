@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { View, Text, StyleSheet, ActivityIndicator, Animated } from 'react-native';
+import { View, Text, StyleSheet, ActivityIndicator, Animated, Image } from 'react-native';
 import { COLORS, TYPOGRAPHY } from '../../constants/theme';
 
 export default function SplashScreen({ navigation }) {
@@ -30,7 +30,11 @@ export default function SplashScreen({ navigation }) {
   return (
     <View style={styles.container}>
       <Animated.View style={[styles.content, { opacity, transform: [{ scale }] }]}>
-        <Text style={styles.logo}>💀</Text>
+        <Image 
+          source={require('../../../assets/LogoCharro.png')}
+          style={styles.logo}
+          resizeMode="contain"
+        />
         <Text style={styles.title}>LA CANTINA</Text>
         <Text style={styles.subtitle}>DEL CHARRO</Text>
         <Text style={styles.slogan}>Donde el trago es ley y el charro, leyenda</Text>
@@ -54,9 +58,11 @@ const styles = StyleSheet.create({
   },
   content: {
     alignItems: 'center',
+    marginTop: 50,
   },
   logo: {
-    fontSize: 80,
+    width: 250,
+    height: 250,
     marginBottom: 16,
   },
   title: {

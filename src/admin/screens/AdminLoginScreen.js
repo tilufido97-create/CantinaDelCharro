@@ -1,8 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ActivityIndicator } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, SPACING } from '../../constants/theme';
 import { loginAdmin } from '../utils/adminAuth';
+import { initializeMockAdmins } from '../constants/mockDataAdmin';
 
 export default function AdminLoginScreen({ navigation }) {
   const [email, setEmail] = useState('');
@@ -11,8 +13,30 @@ export default function AdminLoginScreen({ navigation }) {
   const [loading, setLoading] = useState(false);
   const [emailFocused, setEmailFocused] = useState(false);
   const [passwordFocused, setPasswordFocused] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
+  const [loginAttempts, setLoginAttempts] = useState(0);
+  const [blockedUntil, setBlockedUntil] = useState(null);
+
+  useEffect(() => {
+    initializeMockAdmins(AsyncStorage);
+    loadRememberedEmail();
+  }, []);
+
+  const loadRememberedEmail = async () => {
+    const saved = await AsyncStorage.getItem('remembered_admin_email');
+    if (saved) {
+      setEmail(saved);
+      setRememberMe(true);
+    }
+  };
 
   const handleLogin = async () => {
+    if (blockedUntil && Date.now() < blockedUntil) {
+      const remaining = Math.ceil((blockedUntil - Date.now()) / 60000);
+      Alert.alert('Bloqueado', `Demasiados intentos. Intenta en ${remaining} minutos`);
+      return;
+    }
+
     if (!email || !password) {
       Alert.alert('Error', 'Por favor completa todos los campos');
       return;
@@ -28,9 +52,23 @@ export default function AdminLoginScreen({ navigation }) {
     setLoading(false);
 
     if (result.success) {
+      setLoginAttempts(0);
+      if (rememberMe) {
+        await AsyncStorage.setItem('remembered_admin_email', email);
+      } else {
+        await AsyncStorage.removeItem('remembered_admin_email');
+      }
       navigation.replace('AdminDashboard', { user: result.user });
     } else {
-      Alert.alert('Error de autenticación', result.error);
+      const newAttempts = loginAttempts + 1;
+      setLoginAttempts(newAttempts);
+      if (newAttempts >= 5) {
+        const blockTime = Date.now() + 15 * 60 * 1000;
+        setBlockedUntil(blockTime);
+        Alert.alert('Bloqueado', 'Demasiados intentos fallidos. Bloqueado por 15 minutos');
+      } else {
+        Alert.alert('Error de autenticación', 'Credenciales inválidas');
+      }
     }
   };
 
@@ -81,6 +119,18 @@ export default function AdminLoginScreen({ navigation }) {
             </TouchableOpacity>
           </View>
         </View>
+
+        <TouchableOpacity
+          style={styles.rememberRow}
+          onPress={() => setRememberMe(!rememberMe)}
+        >
+          <Ionicons
+            name={rememberMe ? 'checkbox' : 'square-outline'}
+            size={24}
+            color={rememberMe ? COLORS.accent.gold : COLORS.text.tertiary}
+          />
+          <Text style={styles.rememberText}>Recordarme</Text>
+        </TouchableOpacity>
 
         <TouchableOpacity
           style={[styles.loginButton, loading && styles.loginButtonDisabled]}
@@ -195,6 +245,17 @@ const styles = StyleSheet.create({
     color: COLORS.text.tertiary,
     textAlign: 'center',
     marginTop: SPACING.md,
+  },
+  rememberRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: SPACING.md,
+    cursor: 'pointer',
+  },
+  rememberText: {
+    fontSize: 14,
+    color: COLORS.text.secondary,
+    marginLeft: SPACING.sm,
   },
   footer: {
     fontSize: 12,

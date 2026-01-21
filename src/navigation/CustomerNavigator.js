@@ -33,6 +33,7 @@ import SettingsScreen from '../screens/customer/SettingsScreen';
 import HelpScreen from '../screens/customer/HelpScreen';
 import LegalScreen from '../screens/customer/LegalScreen';
 import NotificationSettingsScreen from '../screens/settings/NotificationSettingsScreen';
+import DeliveryApplicationScreen from '../screens/delivery/DeliveryApplicationScreen';
 import { COLORS } from '../constants/theme';
 
 const Tab = createBottomTabNavigator();
@@ -138,6 +139,7 @@ export default function CustomerNavigator() {
       <Stack.Screen name="NotificationSettings" component={NotificationSettingsScreen} />
       <Stack.Screen name="Help" component={HelpScreen} />
       <Stack.Screen name="Legal" component={LegalScreen} />
+      <Stack.Screen name="DeliveryApplication" component={DeliveryApplicationScreen} />
       <Stack.Screen name="Checkout" component={CheckoutScreen} />
       <Stack.Screen name="Address" component={AddressScreen} />
       <Stack.Screen name="PaymentMethod" component={PaymentMethodScreen} />

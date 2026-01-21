@@ -1,12 +1,32 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, SPACING } from '../../constants/theme';
 import { logoutAdmin } from '../utils/adminAuth';
 import { useNavigation } from '@react-navigation/native';
+import { MOCK_NOTIFICATIONS } from '../constants/mockDataAdmin';
 
-export default function AdminTopBar({ title, user, notificationCount = 0 }) {
+export default function AdminTopBar({ title, user }) {
   const navigation = useNavigation();
+  const [notifications, setNotifications] = useState([]);
+  const [showNotifications, setShowNotifications] = useState(false);
+
+  useEffect(() => {
+    loadNotifications();
+  }, []);
+
+  const loadNotifications = async () => {
+    const stored = await AsyncStorage.getItem('admin_notifications');
+    if (stored) {
+      setNotifications(JSON.parse(stored));
+    } else {
+      setNotifications(MOCK_NOTIFICATIONS);
+      await AsyncStorage.setItem('admin_notifications', JSON.stringify(MOCK_NOTIFICATIONS));
+    }
+  };
+
+  const unreadCount = notifications.filter(n => !n.read).length;
 
   const handleLogout = () => {
     Alert.alert(
@@ -31,11 +51,14 @@ export default function AdminTopBar({ title, user, notificationCount = 0 }) {
       <Text style={styles.title}>{title || 'Dashboard'}</Text>
 
       <View style={styles.rightSection}>
-        {notificationCount > 0 && (
-          <TouchableOpacity style={styles.notificationButton}>
+        {unreadCount > 0 && (
+          <TouchableOpacity 
+            style={styles.notificationButton}
+            onPress={() => setShowNotifications(!showNotifications)}
+          >
             <Ionicons name="notifications" size={24} color={COLORS.text.primary} />
             <View style={styles.badge}>
-              <Text style={styles.badgeText}>{notificationCount}</Text>
+              <Text style={styles.badgeText}>{unreadCount}</Text>
             </View>
           </TouchableOpacity>
         )}
