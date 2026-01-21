@@ -15,12 +15,34 @@ const MENU_ITEMS = [
   { id: 'admins', icon: 'shield-checkmark', label: 'Administradores', permission: 'super_only' },
 ];
 
-export default function AdminSidebar({ user, activeScreen = 'dashboard', onNavigate }) {
+export default function AdminSidebar({ user, activeScreen, onNavigate }) {
+  const getScreenId = (screenName) => {
+    const screenMap = {
+      'AdminDashboard': 'dashboard',
+      'Products': 'products',
+      'Orders': 'orders',
+      'Users': 'users',
+      'Deliveries': 'deliveries',
+      'Promotions': 'promotions',
+      'Analytics': 'analytics',
+      'Admins': 'admins'
+    };
+    return screenMap[screenName] || 'dashboard';
+  };
+  
+  const currentScreenId = getScreenId(activeScreen);
+  
   const visibleItems = MENU_ITEMS.filter(item => {
+    // SUPER_ADMIN ve todo
+    if (user?.permissions?.includes('*')) return true;
+    
+    // Dashboard es visible para todos
     if (item.permission === '*') return true;
-    if (item.permission === 'super_only') {
-      return user?.permissions?.includes('*');
-    }
+    
+    // Administradores solo para SUPER_ADMIN
+    if (item.permission === 'super_only') return false;
+    
+    // Verificar permiso específico
     return hasPermission(user, item.permission);
   });
 
@@ -38,19 +60,19 @@ export default function AdminSidebar({ user, activeScreen = 'dashboard', onNavig
             key={item.id}
             style={[
               styles.menuItem,
-              activeScreen === item.id && styles.menuItemActive
+              currentScreenId === item.id && styles.menuItemActive
             ]}
             onPress={() => onNavigate?.(item.id)}
           >
             <Ionicons
               name={item.icon}
               size={22}
-              color={activeScreen === item.id ? '#FFB800' : '#8E8E93'}
+              color={currentScreenId === item.id ? '#FFB800' : '#8E8E93'}
             />
             <Text
               style={[
                 styles.menuLabel,
-                activeScreen === item.id && styles.menuLabelActive
+                currentScreenId === item.id && styles.menuLabelActive
               ]}
             >
               {item.label}

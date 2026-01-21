@@ -8,7 +8,7 @@ export default function AnalyticsScreen({ route }) {
   const user = route.params?.user;
 
   return (
-    <AdminLayout title="Analytics y Reportes" user={user}>
+    <AdminLayout title="Analytics y Reportes" user={user} showBackButton={true}>
       <ScrollView style={styles.container}>
         <Text style={styles.title}>📈 Analytics</Text>
 

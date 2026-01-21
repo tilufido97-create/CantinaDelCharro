@@ -50,7 +50,7 @@ export default function AdminsManagementScreen({ route }) {
   };
 
   return (
-    <AdminLayout title="Gestión de Administradores" user={user}>
+    <AdminLayout title="Gestión de Administradores" user={user} showBackButton={true}>
       <ScrollView style={styles.container}>
         <View style={styles.header}>
           <Text style={styles.title}>🛡️ Administradores</Text>

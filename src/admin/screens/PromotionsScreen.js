@@ -8,7 +8,7 @@ export default function PromotionsScreen({ route }) {
   const user = route.params?.user;
 
   return (
-    <AdminLayout title="Gestión de Promociones" user={user}>
+    <AdminLayout title="Gestión de Promociones" user={user} showBackButton={true}>
       <ScrollView style={styles.container}>
         <View style={styles.header}>
           <Text style={styles.title}>🎁 Promociones</Text>
