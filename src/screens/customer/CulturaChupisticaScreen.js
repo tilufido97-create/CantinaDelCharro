@@ -4,16 +4,24 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { TouchableOpacity, PanGestureHandler } from 'react-native-gesture-handler';
 import { COLORS, TYPOGRAPHY, SPACING, BORDER_RADIUS } from '../../constants/theme';
 import Button from '../../components/common/Button';
+import { getRandomQuestion } from '../../data/drinkingQuestions';
 
 export default function CulturaChupisticaScreen({ navigation }) {
   const [showRules, setShowRules] = useState(true);
   const [showGame, setShowGame] = useState(false);
   const [cardFlipped, setCardFlipped] = useState(false);
+  const [currentQuestion, setCurrentQuestion] = useState('');
   const translateX = new Animated.Value(0);
 
   const handleStartGame = () => {
     setShowRules(false);
     setShowGame(true);
+    setCurrentQuestion(getRandomQuestion());
+  };
+
+  const getNewQuestion = () => {
+    setCurrentQuestion(getRandomQuestion());
+    setCardFlipped(false);
   };
 
   const onGestureEvent = Animated.event(
@@ -26,8 +34,13 @@ export default function CulturaChupisticaScreen({ navigation }) {
       const { translationX } = event.nativeEvent;
       
       if (Math.abs(translationX) > 150) { // Aumentado para cartas más grandes
-        // Flip the card
-        setCardFlipped(!cardFlipped);
+        if (!cardFlipped) {
+          // Flip the card
+          setCardFlipped(true);
+        } else {
+          // Get new question
+          getNewQuestion();
+        }
         Animated.spring(translateX, {
           toValue: 0,
           useNativeDriver: true,
@@ -115,7 +128,7 @@ export default function CulturaChupisticaScreen({ navigation }) {
                   {/* Mensaje de reto en el centro cuando es CartaR */}
                   {cardFlipped && (
                     <View style={styles.challengeOverlay}>
-                      <Text style={styles.challengeText}>Cultura chupística manda decir: marcas de autos deportivos</Text>
+                      <Text style={styles.challengeText}>Cultura chupística manda decir: {currentQuestion}</Text>
                     </View>
                   )}
                 </Animated.View>
@@ -146,9 +159,20 @@ export default function CulturaChupisticaScreen({ navigation }) {
                 {!cardFlipped ? (
                   <Text style={styles.flipHint}>Desliza para voltear la carta</Text>
                 ) : (
-                  <Text style={styles.flipHint}>Deslizar para sacar otra carta</Text>
+                  <Text style={styles.flipHint}>Desliza para sacar otra carta</Text>
                 )}
               </View>
+              
+              {/* Botón para nueva pregunta */}
+              {cardFlipped && (
+                <View style={styles.buttonContainer}>
+                  <Button
+                    title="🎲 Nueva Pregunta"
+                    onPress={getNewQuestion}
+                    variant="secondary"
+                  />
+                </View>
+              )}
             </View>
           </View>
         )}
@@ -303,5 +327,9 @@ const styles = StyleSheet.create({
     fontFamily: 'serif',
     textTransform: 'uppercase',
     letterSpacing: 1,
+  },
+  buttonContainer: {
+    marginTop: SPACING.lg,
+    paddingHorizontal: SPACING.xl,
   },
 });
