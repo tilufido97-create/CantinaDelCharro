@@ -181,7 +181,7 @@ export default function AddressScreen({ navigation }) {
         <View style={{ width: 60 }} />
       </View>
 
-      <ScrollView style={styles.scroll}>
+      <ScrollView style={styles.scroll} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
         <TouchableOpacity style={styles.addButton} onPress={openAddModal}>
           <Text style={styles.addButtonText}>+ Agregar nueva dirección</Text>
         </TouchableOpacity>
