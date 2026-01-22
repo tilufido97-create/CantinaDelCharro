@@ -19,6 +19,7 @@ import BlackjackScreen from '../screens/games/BlackjackScreen';
 import MixologyMasterScreen from '../screens/games/MixologyMasterScreen';
 import ShotChallengeScreen from '../screens/games/ShotChallengeScreen';
 import ImpostorGameScreen from '../screens/games/ImpostorGameScreen';
+import TodisScreen from '../screens/games/TodisScreen';
 import { COLORS } from '../constants/theme';
 
 const Tab = createBottomTabNavigator();
@@ -110,6 +111,7 @@ export default function CustomerNavigator() {
       <Stack.Screen name="MixologyMaster" component={MixologyMasterScreen} />
       <Stack.Screen name="ShotChallenge" component={ShotChallengeScreen} />
       <Stack.Screen name="ImpostorGame" component={ImpostorGameScreen} />
+      <Stack.Screen name="Todis" component={TodisScreen} />
       <Stack.Screen name="Checkout" component={CheckoutScreen} />
       <Stack.Screen name="Address" component={AddressScreen} />
       <Stack.Screen name="PaymentMethod" component={PaymentMethodScreen} />
