@@ -4,6 +4,7 @@ import { AppState, Platform } from 'react-native';
 import AuthNavigator from './AuthNavigator';
 import CustomerNavigator from './CustomerNavigator';
 import AdminNavigator from '../admin/navigation/AdminNavigator';
+import VideoLoadingScreen from '../components/common/VideoLoadingScreen';
 import { ActivityIndicator, View } from 'react-native';
 import { COLORS } from '../constants/theme';
 
@@ -11,6 +12,7 @@ export default function RootNavigator() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [showVideoLoading, setShowVideoLoading] = useState(true);
 
   useEffect(() => {
     checkAuth();
@@ -52,6 +54,15 @@ export default function RootNavigator() {
       setLoading(false);
     }
   };
+
+  const handleVideoLoadingComplete = () => {
+    setShowVideoLoading(false);
+  };
+
+  // Mostrar video de carga al inicio
+  if (showVideoLoading) {
+    return <VideoLoadingScreen onComplete={handleVideoLoadingComplete} />;
+  }
 
   if (loading) {
     return (

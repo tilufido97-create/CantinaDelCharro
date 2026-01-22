@@ -63,6 +63,13 @@ export default function GamesScreen({ navigation }) {
             />
             
             <Button
+              title="🎲 Todis"
+              onPress={() => navigation.navigate('Todis')}
+              variant="outline"
+              fullWidth
+            />
+            
+            <Button
               title="👤 Impostor Game"
               onPress={() => navigation.navigate('ImpostorGame')}
               variant="outline"
@@ -76,10 +83,10 @@ export default function GamesScreen({ navigation }) {
           <Text style={styles.sectionTitle}>🎮 FASE 6</Text>
           
           <Text style={styles.comingSoonText}>
-            7 juegos disponibles. ¡Diviértete y gana puntos!
+            8 juegos disponibles. ¡Diviértete y gana puntos!
           </Text>
 
-          <Text style={styles.phaseInfo}>✅ 7 juegos activos</Text>
+          <Text style={styles.phaseInfo}>✅ 8 juegos activos</Text>
         </View>
       </ScrollView>
     </SafeAreaView>

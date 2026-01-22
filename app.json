@@ -4,7 +4,11 @@
     "slug": "cantina-charro",
     "version": "1.0.0",
     "orientation": "portrait",
-    "platforms": ["ios", "android", "web"],
+    "platforms": [
+      "ios",
+      "android",
+      "web"
+    ],
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
     "splash": {
@@ -54,7 +58,8 @@
         {
           "locationAlwaysAndWhenInUsePermission": "La Cantina del Charro necesita tu ubicación para mostrarte tiendas cercanas y rastrear tu pedido."
         }
-      ]
+      ],
+      "expo-video"
     ]
   }
 }

@@ -19,6 +19,7 @@ import BlackjackScreen from '../screens/games/BlackjackScreen';
 import MixologyMasterScreen from '../screens/games/MixologyMasterScreen';
 import ShotChallengeScreen from '../screens/games/ShotChallengeScreen';
 import ImpostorGameScreen from '../screens/games/ImpostorGameScreen';
+import TodisScreen from '../screens/games/TodisScreen';
 import LoyaltyScreen from '../screens/customer/LoyaltyScreen';
 import RewardsScreen from '../screens/customer/RewardsScreen';
 import ReferralScreen from '../screens/customer/ReferralScreen';
@@ -125,6 +126,7 @@ export default function CustomerNavigator() {
       <Stack.Screen name="MixologyMaster" component={MixologyMasterScreen} />
       <Stack.Screen name="ShotChallenge" component={ShotChallengeScreen} />
       <Stack.Screen name="ImpostorGame" component={ImpostorGameScreen} />
+      <Stack.Screen name="Todis" component={TodisScreen} />
       <Stack.Screen name="Loyalty" component={LoyaltyScreen} />
       <Stack.Screen name="Rewards" component={RewardsScreen} />
       <Stack.Screen name="Referral" component={ReferralScreen} />
