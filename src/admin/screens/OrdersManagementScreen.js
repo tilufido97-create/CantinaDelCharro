@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert, Modal, ActivityIndicator, FlatList } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { COLORS } from '../../constants/theme';
 import AdminLayout from '../components/AdminLayout';
+import OrderDetailModal from '../components/OrderDetailModal';
 import { getCurrentAdmin } from '../utils/adminAuth';
 
 const ORDER_STATES = {
@@ -26,8 +27,6 @@ const OrdersManagementScreen = () => {
   const [statusFilter, setStatusFilter] = useState('all');
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState(null);
-  const [showAssignModal, setShowAssignModal] = useState(false);
-  const [assigningOrder, setAssigningOrder] = useState(null);
 
   const loadOrders = async () => {
     try {
@@ -80,10 +79,25 @@ const OrdersManagementScreen = () => {
 
   const updateOrderStatus = async (orderId, newStatus) => {
     try {
-      const updatedOrders = orders.map(o =>
-        o.id === orderId ? { ...o, status: newStatus, updatedAt: new Date().toISOString() } : o
-      );
+      const updatedOrders = orders.map(o => {
+        if (o.id === orderId) {
+          const updated = { ...o, status: newStatus, updatedAt: new Date().toISOString() };
+          if (newStatus === 'delivered') {
+            updated.deliveredAt = new Date().toISOString();
+            if (o.assignedDeliveryId) {
+              const delivery = deliveries.find(d => d.id === o.assignedDeliveryId);
+              if (delivery) {
+                delivery.available = true;
+                delivery.completedToday = (delivery.completedToday || 0) + 1;
+              }
+            }
+          }
+          return updated;
+        }
+        return o;
+      });
       await AsyncStorage.setItem('order_history', JSON.stringify(updatedOrders));
+      await AsyncStorage.setItem('active_deliveries', JSON.stringify(deliveries));
       setOrders(updatedOrders);
       Alert.alert('Éxito', `Pedido actualizado a: ${ORDER_STATES[newStatus].label}`);
     } catch (error) {
@@ -109,9 +123,13 @@ const OrdersManagementScreen = () => {
           assignedAt: new Date().toISOString()
         } : o
       );
+      const updatedDeliveries = deliveries.map(d =>
+        d.id === deliveryId ? { ...d, available: false } : d
+      );
       await AsyncStorage.setItem('order_history', JSON.stringify(updatedOrders));
+      await AsyncStorage.setItem('active_deliveries', JSON.stringify(updatedDeliveries));
       setOrders(updatedOrders);
-      setShowAssignModal(false);
+      setDeliveries(updatedDeliveries);
       Alert.alert('Éxito', `Pedido asignado a ${delivery.name}`);
     } catch (error) {
       console.error('Error assigning delivery:', error);
@@ -119,15 +137,62 @@ const OrdersManagementScreen = () => {
     }
   };
 
-  const cancelOrder = (order) => {
-    Alert.alert(
-      'Cancelar pedido',
-      `¿Estás seguro de cancelar el pedido #${order.orderNumber}?`,
-      [
-        { text: 'No', style: 'cancel' },
-        { text: 'Sí, cancelar', style: 'destructive', onPress: () => updateOrderStatus(order.id, 'cancelled') }
-      ]
-    );
+  const unassignDelivery = async (orderId) => {
+    try {
+      const order = orders.find(o => o.id === orderId);
+      if (!order || !order.assignedDeliveryId) return;
+      
+      const updatedOrders = orders.map(o =>
+        o.id === orderId ? {
+          ...o,
+          assignedDeliveryId: null,
+          assignedDeliveryName: null,
+          assignedDeliveryCode: null,
+          status: 'ready'
+        } : o
+      );
+      const updatedDeliveries = deliveries.map(d =>
+        d.id === order.assignedDeliveryId ? { ...d, available: true } : d
+      );
+      await AsyncStorage.setItem('order_history', JSON.stringify(updatedOrders));
+      await AsyncStorage.setItem('active_deliveries', JSON.stringify(updatedDeliveries));
+      setOrders(updatedOrders);
+      setDeliveries(updatedDeliveries);
+      Alert.alert('Éxito', 'Delivery liberado');
+    } catch (error) {
+      console.error('Error unassigning delivery:', error);
+      Alert.alert('Error', 'No se pudo quitar el delivery');
+    }
+  };
+
+  const cancelOrder = async (orderId) => {
+    try {
+      const order = orders.find(o => o.id === orderId);
+      if (!order) return;
+      
+      const updatedOrders = orders.map(o =>
+        o.id === orderId ? {
+          ...o,
+          status: 'cancelled',
+          cancelledAt: new Date().toISOString()
+        } : o
+      );
+      
+      if (order.assignedDeliveryId) {
+        const updatedDeliveries = deliveries.map(d =>
+          d.id === order.assignedDeliveryId ? { ...d, available: true } : d
+        );
+        await AsyncStorage.setItem('active_deliveries', JSON.stringify(updatedDeliveries));
+        setDeliveries(updatedDeliveries);
+      }
+      
+      await AsyncStorage.setItem('order_history', JSON.stringify(updatedOrders));
+      setOrders(updatedOrders);
+      Alert.alert('Éxito', 'Pedido cancelado');
+    } catch (error) {
+      console.error('Error cancelling order:', error);
+      Alert.alert('Error', 'No se pudo cancelar el pedido');
+    }
   };
 
   const getNextStates = (currentState) => {
@@ -142,14 +207,8 @@ const OrdersManagementScreen = () => {
   };
 
   const showStatusMenu = (order) => {
-    const nextStates = getNextStates(order.status);
-    const options = nextStates.map(state => ({
-      text: `Cambiar a: ${ORDER_STATES[state].label}`,
-      onPress: () => updateOrderStatus(order.id, state)
-    }));
-    options.push({ text: 'Cancelar pedido', onPress: () => cancelOrder(order), style: 'destructive' });
-    options.push({ text: 'Cerrar', style: 'cancel' });
-    Alert.alert(`Pedido #${order.orderNumber}`, 'Selecciona una acción', options);
+    setSelectedOrder(order);
+    setShowDetailModal(true);
   };
 
   const OrderRow = ({ order }) => {
@@ -184,7 +243,7 @@ const OrdersManagementScreen = () => {
               <Text style={styles.deliveryName}>{order.assignedDeliveryName}</Text>
             </View>
           ) : canAssignDelivery ? (
-            <TouchableOpacity style={styles.assignButton} onPress={() => { setAssigningOrder(order); setShowAssignModal(true); }}>
+            <TouchableOpacity style={styles.assignButton} onPress={() => { setSelectedOrder(order); setShowDetailModal(true); }}>
               <Text style={styles.assignButtonText}>Asignar</Text>
             </TouchableOpacity>
           ) : (
@@ -284,166 +343,18 @@ const OrdersManagementScreen = () => {
         </View>
       )}
 
-      <AssignDeliveryModal />
-      <OrderDetailModal />
+      <OrderDetailModal
+        visible={showDetailModal}
+        order={selectedOrder}
+        deliveries={deliveries}
+        onClose={() => setShowDetailModal(false)}
+        onUpdateStatus={updateOrderStatus}
+        onAssignDelivery={assignDelivery}
+        onUnassignDelivery={unassignDelivery}
+        onCancelOrder={cancelOrder}
+      />
     </AdminLayout>
   );
-
-  function AssignDeliveryModal() {
-    return (
-      <Modal visible={showAssignModal} animationType="slide" transparent={true} onRequestClose={() => setShowAssignModal(false)}>
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Asignar Delivery</Text>
-              <TouchableOpacity onPress={() => setShowAssignModal(false)}>
-                <Ionicons name="close" size={28} color={COLORS.textPrimary} />
-              </TouchableOpacity>
-            </View>
-            
-            {assigningOrder && (
-              <View style={styles.orderSummary}>
-                <Text style={styles.summaryText}>Pedido: #{assigningOrder.orderNumber}</Text>
-                <Text style={styles.summaryText}>Cliente: {assigningOrder.customerName}</Text>
-                <Text style={styles.summaryText}>Dirección: {assigningOrder.deliveryAddress?.street}</Text>
-              </View>
-            )}
-            
-            <Text style={styles.sectionTitle}>Deliverys Disponibles:</Text>
-            
-            <FlatList
-              data={deliveries.filter(d => d.status === 'active')}
-              keyExtractor={item => item.id}
-              renderItem={({ item }) => (
-                <TouchableOpacity style={styles.deliveryOption} onPress={() => assignDelivery(assigningOrder.id, item.id)}>
-                  <View style={styles.deliveryInfo}>
-                    <Text style={styles.deliveryNameText}>{item.name}</Text>
-                    <Text style={styles.deliveryCodeText}>{item.code}</Text>
-                    <Text style={styles.deliveryVehicleText}>{item.vehicleType} - {item.vehiclePlate}</Text>
-                  </View>
-                  <View style={styles.deliveryStats}>
-                    <Text style={styles.statsText}>{item.completedToday || 0} entregas hoy</Text>
-                    <Text style={[styles.statsText, item.available ? styles.availableText : styles.busyText]}>
-                      {item.available ? '✓ Disponible' : '⏳ Ocupado'}
-                    </Text>
-                  </View>
-                </TouchableOpacity>
-              )}
-              ListEmptyComponent={() => (
-                <View style={styles.emptyState}>
-                  <Ionicons name="bicycle-outline" size={64} color={COLORS.textTertiary} />
-                  <Text style={styles.emptyText}>No hay deliverys disponibles</Text>
-                </View>
-              )}
-            />
-          </View>
-        </View>
-      </Modal>
-    );
-  }
-
-  function OrderDetailModal() {
-    if (!selectedOrder) return null;
-    
-    return (
-      <Modal visible={showDetailModal} animationType="slide" transparent={true} onRequestClose={() => setShowDetailModal(false)}>
-        <View style={styles.modalOverlay}>
-          <View style={styles.detailModalContent}>
-            <ScrollView>
-              <View style={styles.modalHeader}>
-                <Text style={styles.modalTitle}>Detalle del Pedido #{selectedOrder.orderNumber}</Text>
-                <TouchableOpacity onPress={() => setShowDetailModal(false)}>
-                  <Ionicons name="close" size={28} color={COLORS.textPrimary} />
-                </TouchableOpacity>
-              </View>
-              
-              <View style={styles.detailSection}>
-                <Text style={styles.detailLabel}>Estado:</Text>
-                <View style={[styles.statusBadge, { backgroundColor: ORDER_STATES[selectedOrder.status].color + '20' }]}>
-                  <Ionicons name={ORDER_STATES[selectedOrder.status].icon} size={20} color={ORDER_STATES[selectedOrder.status].color} />
-                  <Text style={[styles.statusText, { color: ORDER_STATES[selectedOrder.status].color }]}>
-                    {ORDER_STATES[selectedOrder.status].label}
-                  </Text>
-                </View>
-              </View>
-              
-              <View style={styles.detailSection}>
-                <Text style={styles.sectionTitle}>Cliente</Text>
-                <Text style={styles.detailText}>Nombre: {selectedOrder.customerName}</Text>
-                <Text style={styles.detailText}>Teléfono: {selectedOrder.customerPhone || 'N/A'}</Text>
-              </View>
-              
-              <View style={styles.detailSection}>
-                <Text style={styles.sectionTitle}>Dirección de entrega</Text>
-                <Text style={styles.detailText}>{selectedOrder.deliveryAddress?.street}</Text>
-                <Text style={styles.detailText}>{selectedOrder.deliveryAddress?.zone}</Text>
-                {selectedOrder.deliveryAddress?.reference && (
-                  <Text style={styles.detailText}>Ref: {selectedOrder.deliveryAddress.reference}</Text>
-                )}
-              </View>
-              
-              <View style={styles.detailSection}>
-                <Text style={styles.sectionTitle}>Productos</Text>
-                {selectedOrder.items?.map((item, index) => (
-                  <View key={index} style={styles.productItem}>
-                    <Text style={styles.productName}>{item.quantity}x {item.name}</Text>
-                    <Text style={styles.productPrice}>Bs {(item.price * item.quantity).toFixed(2)}</Text>
-                  </View>
-                ))}
-              </View>
-              
-              <View style={styles.detailSection}>
-                <Text style={styles.sectionTitle}>Resumen</Text>
-                <View style={styles.summaryRow}>
-                  <Text style={styles.summaryLabel}>Subtotal:</Text>
-                  <Text style={styles.summaryValue}>Bs {selectedOrder.subtotal?.toFixed(2)}</Text>
-                </View>
-                <View style={styles.summaryRow}>
-                  <Text style={styles.summaryLabel}>Delivery:</Text>
-                  <Text style={styles.summaryValue}>Bs {selectedOrder.delivery?.toFixed(2) || '0.00'}</Text>
-                </View>
-                <View style={[styles.summaryRow, styles.totalRow]}>
-                  <Text style={styles.totalLabel}>TOTAL:</Text>
-                  <Text style={styles.totalValue}>Bs {selectedOrder.total?.toFixed(2)}</Text>
-                </View>
-                <Text style={styles.paymentMethod}>
-                  Método: {selectedOrder.paymentMethod === 'cash' ? 'Efectivo' : 'QR'}
-                </Text>
-              </View>
-              
-              {selectedOrder.assignedDeliveryCode && (
-                <View style={styles.detailSection}>
-                  <Text style={styles.sectionTitle}>Delivery Asignado</Text>
-                  <Text style={styles.detailText}>Código: {selectedOrder.assignedDeliveryCode}</Text>
-                  <Text style={styles.detailText}>Nombre: {selectedOrder.assignedDeliveryName}</Text>
-                </View>
-              )}
-              
-              <View style={styles.detailSection}>
-                <Text style={styles.sectionTitle}>Timeline</Text>
-                <View style={styles.timelineItem}>
-                  <Ionicons name="checkmark-circle" size={20} color={COLORS.success} />
-                  <View style={styles.timelineContent}>
-                    <Text style={styles.timelineLabel}>Pedido creado</Text>
-                    <Text style={styles.timelineTime}>{new Date(selectedOrder.createdAt).toLocaleString('es-BO')}</Text>
-                  </View>
-                </View>
-                {selectedOrder.assignedAt && (
-                  <View style={styles.timelineItem}>
-                    <Ionicons name="bicycle" size={20} color={COLORS.accentGold} />
-                    <View style={styles.timelineContent}>
-                      <Text style={styles.timelineLabel}>Delivery asignado</Text>
-                      <Text style={styles.timelineTime}>{new Date(selectedOrder.assignedAt).toLocaleString('es-BO')}</Text>
-                    </View>
-                  </View>
-                )}
-              </View>
-            </ScrollView>
-          </View>
-        </View>
-      </Modal>
-    );
-  }
 };
 
 const styles = StyleSheet.create({

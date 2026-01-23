@@ -21,8 +21,11 @@ export default function AdminLayout({ children, title, user, showBackButton = fa
       dashboard: 'AdminDashboard',
       products: 'Products',
       orders: 'Orders',
+      financial: 'Financial',
       users: 'Users',
       deliveries: 'Deliveries',
+      fleet: 'Fleet',
+      calculator: 'DeliveryCalculator',
       promotions: 'Promotions',
       analytics: 'Analytics',
       admins: 'Admins'

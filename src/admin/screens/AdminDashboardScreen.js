@@ -1,223 +1,149 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { View, Text, StyleSheet, ScrollView, RefreshControl, Dimensions } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { COLORS } from '../../constants/theme';
 import AdminLayout from '../components/AdminLayout';
 import { getCurrentAdmin } from '../utils/adminAuth';
-
-const StatsCard = ({ icon, label, value, growth, color }) => (
-  <View style={styles.statsCard}>
-    <View style={[styles.statsIcon, { backgroundColor: color + '20' }]}>
-      <Ionicons name={icon} size={28} color={color} />
-    </View>
-    <Text style={styles.statsLabel}>{label}</Text>
-    <Text style={styles.statsValue}>{value}</Text>
-    {growth !== undefined && (
-      <View style={styles.growthContainer}>
-        <Ionicons 
-          name={growth >= 0 ? 'trending-up' : 'trending-down'} 
-          size={16} 
-          color={growth >= 0 ? COLORS.success : COLORS.error} 
-        />
-        <Text style={[styles.growthText, { color: growth >= 0 ? COLORS.success : COLORS.error }]}>
-          {Math.abs(growth)}%
-        </Text>
-      </View>
-    )}
-  </View>
-);
-
-const OrderRow = ({ order, navigation }) => {
-  const getStatusColor = (status) => {
-    switch(status) {
-      case 'pending': return COLORS.warning;
-      case 'preparing': return COLORS.info;
-      case 'on_way': return COLORS.accentGold;
-      case 'delivered': return COLORS.success;
-      default: return COLORS.textTertiary;
-    }
-  };
-
-  const getStatusText = (status) => {
-    switch(status) {
-      case 'pending': return 'Pendiente';
-      case 'preparing': return 'Preparando';
-      case 'on_way': return 'En camino';
-      case 'delivered': return 'Entregado';
-      default: return status;
-    }
-  };
-
-  return (
-    <View style={styles.orderRow}>
-      <Text style={styles.orderNumber}>#{order.orderNumber}</Text>
-      <Text style={styles.orderCustomer}>{order.customerName}</Text>
-      <Text style={styles.orderAmount}>Bs {order.total.toFixed(2)}</Text>
-      <View style={[styles.statusBadge, { backgroundColor: getStatusColor(order.status) + '20' }]}>
-        <Text style={[styles.statusText, { color: getStatusColor(order.status) }]}>
-          {getStatusText(order.status)}
-        </Text>
-      </View>
-    </View>
-  );
-};
-
-const TopProductItem = ({ product, rank }) => (
-  <View style={styles.topProductItem}>
-    <View style={styles.rankBadge}>
-      <Text style={styles.rankText}>{rank}</Text>
-    </View>
-    <Text style={styles.productName}>{product.name}</Text>
-    <Text style={styles.productSales}>{product.unitsSold} vendidos</Text>
-  </View>
-);
+import KPICard from '../components/KPICard';
+import TimelineChart from '../components/TimelineChart';
+import TopProductsChart from '../components/TopProductsChart';
+import PeakHoursChart from '../components/PeakHoursChart';
+import TooltipButton from '../components/TooltipButton';
+import TooltipIcon from '../components/TooltipIcon';
+import {
+  calculateDailyKPIs,
+  comparePeriods,
+  generateTimelineData,
+  calculateTopProducts,
+  calculatePeakHours,
+  calculateConversionRate
+} from '../utils/dashboardAnalytics';
 
 const AdminDashboardScreen = () => {
   const navigation = useNavigation();
   const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [periodFilter, setPeriodFilter] = useState('today');
-  const [stats, setStats] = useState({
-    todaySales: 0,
-    todayOrders: 0,
-    newUsers: 0,
-    activeDeliveries: 0,
-    salesGrowth: 0,
-    ordersGrowth: 0,
-    usersGrowth: 0
+  const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [lastUpdate, setLastUpdate] = useState(new Date());
+  const [selectedPeriod, setSelectedPeriod] = useState(30);
+  
+  const [dashboardData, setDashboardData] = useState({
+    ventasHoy: 0,
+    ventasAyer: 0,
+    ventasCambio: 0,
+    profitHoy: 0,
+    profitAyer: 0,
+    profitCambio: 0,
+    pedidosHoy: 0,
+    pedidosAyer: 0,
+    pedidosCambio: 0,
+    ticketPromedio: 0,
+    ticketPromedioAyer: 0,
+    ticketPromedioCambio: 0,
+    deliverysActivos: 0,
+    deliverysDisponibles: 0,
+    deliverysOcupados: 0,
+    pedidosPendientes: 0,
+    pedidosEnCamino: 0,
+    nuevosUsuarios: 0,
+    tasaConversion: 0,
+    timelineData: [],
+    topProductos: [],
+    peakHours: [],
+    metaDiaria: 0,
+    progresoMetaDiaria: 0
   });
-  const [recentOrders, setRecentOrders] = useState([]);
-  const [topProducts, setTopProducts] = useState([]);
-  const [pendingDeliveries, setPendingDeliveries] = useState(0);
-  const [outOfStock, setOutOfStock] = useState(0);
-  const [showPeriodMenu, setShowPeriodMenu] = useState(false);
 
-  const PERIOD_OPTIONS = [
-    { value: 'today', label: 'Hoy' },
-    { value: 'yesterday', label: 'Ayer' },
-    { value: '7days', label: 'Últimos 7 días' },
-    { value: '30days', label: 'Últimos 30 días' },
-    { value: 'month', label: 'Este mes' }
-  ];
-
-  const getDateRange = (period) => {
-    const now = new Date();
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    
-    switch(period) {
-      case 'today':
-        return { start: today, end: new Date() };
-      case 'yesterday':
-        const yesterday = new Date(today);
-        yesterday.setDate(yesterday.getDate() - 1);
-        return { start: yesterday, end: today };
-      case '7days':
-        const week = new Date(today);
-        week.setDate(week.getDate() - 7);
-        return { start: week, end: new Date() };
-      case '30days':
-        const month = new Date(today);
-        month.setDate(month.getDate() - 30);
-        return { start: month, end: new Date() };
-      case 'month':
-        const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-        return { start: monthStart, end: new Date() };
-      default:
-        return { start: today, end: new Date() };
-    }
-  };
-
-  const loadDashboardData = async () => {
+  const loadDashboardData = useCallback(async () => {
     try {
-      setLoading(true);
-      
       const ordersData = await AsyncStorage.getItem('order_history');
       const orders = ordersData ? JSON.parse(ordersData) : [];
+      
+      const transactionsData = await AsyncStorage.getItem('financial_transactions');
+      const transactions = transactionsData ? JSON.parse(transactionsData) : [];
+      
+      const deliveriesData = await AsyncStorage.getItem('active_deliveries');
+      const deliveries = deliveriesData ? JSON.parse(deliveriesData) : [];
       
       const usersData = await AsyncStorage.getItem('all_users');
       const users = usersData ? JSON.parse(usersData) : [];
       
-      const { start, end } = getDateRange(periodFilter);
-      const periodOrders = orders.filter(o => {
-        const orderDate = new Date(o.createdAt);
-        return orderDate >= start && orderDate <= end;
-      });
+      const goalsData = await AsyncStorage.getItem('financial_goals');
+      const goals = goalsData ? JSON.parse(goalsData) : null;
+
+      const today = new Date();
+      const yesterday = new Date(today);
+      yesterday.setDate(yesterday.getDate() - 1);
+
+      const kpisHoy = calculateDailyKPIs(orders, transactions, today);
+      const kpisAyer = calculateDailyKPIs(orders, transactions, yesterday);
+      const comparison = comparePeriods(kpisHoy, kpisAyer);
+
+      const deliverysDisponibles = deliveries.filter(d => d.estado === 'disponible').length;
+      const deliverysOcupados = deliveries.filter(d => d.estado === 'ocupado').length;
       
-      const periodSales = periodOrders.reduce((sum, o) => sum + o.total, 0);
-      const newUsers = users.filter(u => {
-        const userDate = new Date(u.createdAt);
-        return userDate >= start && userDate <= end;
+      const pedidosPendientes = orders.filter(o => o.estado === 'pendiente').length;
+      const pedidosEnCamino = orders.filter(o => o.estado === 'en_camino').length;
+
+      const todayStart = new Date(today);
+      todayStart.setHours(0, 0, 0, 0);
+      const nuevosUsuarios = users.filter(u => {
+        const userDate = new Date(u.fechaRegistro || u.createdAt);
+        return userDate >= todayStart;
       }).length;
-      
-      const activeDeliveries = periodOrders.filter(o => o.status === 'on_way').length;
-      
-      const prevPeriod = periodFilter === 'today' ? 'yesterday' : 'today';
-      const { start: prevStart, end: prevEnd } = getDateRange(prevPeriod);
-      const prevOrders = orders.filter(o => {
-        const orderDate = new Date(o.createdAt);
-        return orderDate >= prevStart && orderDate <= prevEnd;
+
+      const tasaConversion = calculateConversionRate(users, orders);
+
+      const timelineData = generateTimelineData(orders, transactions, selectedPeriod);
+      const topProductos = calculateTopProducts(orders, 5);
+      const peakHours = calculatePeakHours(orders);
+
+      let metaDiaria = 0;
+      let progresoMetaDiaria = 0;
+      if (goals && goals.diaria && goals.diaria.activa) {
+        metaDiaria = goals.diaria.monto;
+        progresoMetaDiaria = metaDiaria > 0 ? (kpisHoy.profit / metaDiaria) * 100 : 0;
+      }
+
+      setDashboardData({
+        ventasHoy: kpisHoy.ventas,
+        ventasAyer: kpisAyer.ventas,
+        ventasCambio: comparison.ventasCambio,
+        profitHoy: kpisHoy.profit,
+        profitAyer: kpisAyer.profit,
+        profitCambio: comparison.profitCambio,
+        pedidosHoy: kpisHoy.pedidosCompletados,
+        pedidosAyer: kpisAyer.pedidosCompletados,
+        pedidosCambio: comparison.pedidosCambio,
+        ticketPromedio: kpisHoy.ticketPromedio,
+        ticketPromedioAyer: kpisAyer.ticketPromedio,
+        ticketPromedioCambio: comparison.ticketPromedioCambio,
+        deliverysActivos: deliveries.length,
+        deliverysDisponibles,
+        deliverysOcupados,
+        pedidosPendientes,
+        pedidosEnCamino,
+        nuevosUsuarios,
+        tasaConversion,
+        timelineData,
+        topProductos,
+        peakHours,
+        metaDiaria,
+        progresoMetaDiaria
       });
-      const prevSales = prevOrders.reduce((sum, o) => sum + o.total, 0);
-      
-      const salesGrowth = prevSales > 0 
-        ? ((periodSales - prevSales) / prevSales * 100).toFixed(1)
-        : 0;
-      
-      const ordersGrowth = prevOrders.length > 0
-        ? ((periodOrders.length - prevOrders.length) / prevOrders.length * 100).toFixed(1)
-        : 0;
-      
-      setStats({
-        todaySales: periodSales,
-        todayOrders: periodOrders.length,
-        newUsers,
-        activeDeliveries,
-        salesGrowth: parseFloat(salesGrowth),
-        ordersGrowth: parseFloat(ordersGrowth),
-        usersGrowth: 5
-      });
-      
-      const recent = orders
-        .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
-        .slice(0, 10);
-      setRecentOrders(recent);
-      
-      const productSales = {};
-      orders.forEach(order => {
-        order.items?.forEach(item => {
-          if (productSales[item.id]) {
-            productSales[item.id].unitsSold += item.quantity;
-          } else {
-            productSales[item.id] = {
-              id: item.id,
-              name: item.name,
-              unitsSold: item.quantity
-            };
-          }
-        });
-      });
-      
-      const topProds = Object.values(productSales)
-        .sort((a, b) => b.unitsSold - a.unitsSold)
-        .slice(0, 5);
-      setTopProducts(topProds);
-      
-      const deliveryApps = await AsyncStorage.getItem('delivery_applications');
-      const apps = deliveryApps ? JSON.parse(deliveryApps) : [];
-      setPendingDeliveries(apps.filter(a => a.status === 'pending').length);
-      
-      const productsData = await AsyncStorage.getItem('products');
-      const products = productsData ? JSON.parse(productsData) : [];
-      setOutOfStock(products.filter(p => p.stock === 0).length);
-      
+
+      setLastUpdate(new Date());
     } catch (error) {
       console.error('Error loading dashboard:', error);
-    } finally {
-      setLoading(false);
     }
-  };
+  }, [selectedPeriod]);
+
+  const handleRefresh = useCallback(async () => {
+    setIsRefreshing(true);
+    await loadDashboardData();
+    setIsRefreshing(false);
+  }, [loadDashboardData]);
 
   useEffect(() => {
     const loadUser = async () => {
@@ -225,175 +151,304 @@ const AdminDashboardScreen = () => {
       setUser(admin);
     };
     loadUser();
-    loadDashboardData();
-    
-    const interval = setInterval(loadDashboardData, 30000);
-    return () => clearInterval(interval);
-  }, [periodFilter]);
+  }, []);
+
+  useEffect(() => {
+    const loadData = async () => {
+      setIsLoading(true);
+      await loadDashboardData();
+      setIsLoading(false);
+    };
+    if (user) {
+      loadData();
+    }
+  }, [user, loadDashboardData]);
+
+  const getTimeSinceUpdate = () => {
+    const diff = Math.floor((new Date() - lastUpdate) / 1000 / 60);
+    if (diff < 1) return 'Hace menos de 1 minuto';
+    if (diff === 1) return 'Hace 1 minuto';
+    return `Hace ${diff} minutos`;
+  };
+
+  const alerts = useMemo(() => {
+    const alertList = [];
+    if (dashboardData.profitHoy < 0) {
+      alertList.push({ icon: 'warning', text: '⚠️ Profit negativo hoy. Revisa gastos.', color: '#FF3B30' });
+    }
+    if (dashboardData.pedidosPendientes > 5) {
+      alertList.push({ icon: 'time', text: `⚠️ Tienes ${dashboardData.pedidosPendientes} pedidos pendientes por confirmar.`, color: '#FF9500' });
+    }
+    if (dashboardData.deliverysDisponibles === 0 && dashboardData.deliverysActivos > 0) {
+      alertList.push({ icon: 'bicycle', text: '⚠️ No hay deliverys disponibles.', color: '#FF9500' });
+    }
+    if (dashboardData.metaDiaria > 0 && dashboardData.progresoMetaDiaria >= 100) {
+      alertList.push({ icon: 'trophy', text: '✅ ¡Meta del día alcanzada!', color: '#34C759' });
+    }
+    return alertList;
+  }, [dashboardData]);
 
   if (!user) return null;
 
   return (
-    <AdminLayout title="Dashboard" user={user}>
-      <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+    <AdminLayout title="Dashboard Ejecutivo" user={user}>
+      <ScrollView 
+        style={styles.container}
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefreshing}
+            onRefresh={handleRefresh}
+            tintColor="#FFB800"
+            colors={['#FFB800']}
+          />
+        }
+      >
         <View style={styles.header}>
           <View>
-            <Text style={styles.welcomeText}>Bienvenido, {user.name} 👋</Text>
-            <Text style={styles.dateText}>
-              Resumen del día - {new Date().toLocaleDateString('es-BO', {
-                day: 'numeric',
-                month: 'long',
-                year: 'numeric'
-              })}
-            </Text>
+            <Text style={styles.title}>Dashboard Ejecutivo</Text>
+            <Text style={styles.subtitle}>Vista general del negocio</Text>
           </View>
-          
-          <View>
-            <TouchableOpacity 
-              style={styles.filterButton}
-              onPress={() => setShowPeriodMenu(!showPeriodMenu)}
-            >
-              <Text style={styles.filterButtonText}>
-                {PERIOD_OPTIONS.find(p => p.value === periodFilter)?.label}
-              </Text>
-              <Ionicons name="chevron-down" size={20} color={COLORS.textPrimary} />
-            </TouchableOpacity>
-            
-            {showPeriodMenu && (
-              <View style={styles.periodMenu}>
-                {PERIOD_OPTIONS.map(option => (
-                  <TouchableOpacity
-                    key={option.value}
-                    style={[
-                      styles.periodOption,
-                      periodFilter === option.value && styles.periodOptionActive
-                    ]}
-                    onPress={() => {
-                      setPeriodFilter(option.value);
-                      setShowPeriodMenu(false);
-                    }}
-                  >
-                    <Text style={[
-                      styles.periodOptionText,
-                      periodFilter === option.value && styles.periodOptionTextActive
-                    ]}>
-                      {option.label}
-                    </Text>
-                    {periodFilter === option.value && (
-                      <Ionicons name="checkmark" size={20} color={COLORS.accentGold} />
-                    )}
-                  </TouchableOpacity>
-                ))}
-              </View>
-            )}
+          <View style={styles.headerRight}>
+            <Text style={styles.updateText}>{getTimeSinceUpdate()}</Text>
+            <TooltipButton
+              icon="reload"
+              tooltip="Actualizar datos"
+              onPress={handleRefresh}
+              variant="secondary"
+              size="medium"
+              iconOnly
+            />
           </View>
         </View>
 
-        <View style={styles.statsGrid}>
-          <StatsCard
-            icon="cash"
-            label="Ventas del día"
-            value={`Bs ${stats.todaySales.toFixed(2)}`}
-            growth={stats.salesGrowth}
-            color={COLORS.success}
+        <View style={styles.kpiScroll}>
+          <ScrollView 
+            horizontal 
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.kpiContainer}
+          >
+            <KPICard
+              title="Ventas del Día"
+              value={`Bs ${dashboardData.ventasHoy.toFixed(2)}`}
+              comparison={`${dashboardData.ventasCambio >= 0 ? '+' : ''}${dashboardData.ventasCambio.toFixed(1)}% vs ayer`}
+              comparisonValue={dashboardData.ventasCambio}
+              icon="cash"
+              color="#34C759"
+              tooltip="Total de ventas completadas hoy"
+            />
+            <KPICard
+              title="Profit del Día"
+              value={`Bs ${dashboardData.profitHoy.toFixed(2)}`}
+              comparison={`${dashboardData.profitCambio >= 0 ? '+' : ''}${dashboardData.profitCambio.toFixed(1)}% vs ayer`}
+              comparisonValue={dashboardData.profitCambio}
+              icon="trending-up"
+              color="#FFB800"
+              tooltip="Ganancia neta (ingresos - gastos) del día"
+            />
+            <KPICard
+              title="Pedidos Completados"
+              value={`${dashboardData.pedidosHoy} pedidos`}
+              comparison={`${dashboardData.pedidosCambio >= 0 ? '+' : ''}${Math.abs(dashboardData.pedidosCambio)} vs ayer`}
+              comparisonValue={dashboardData.pedidosCambio}
+              icon="checkmark-circle"
+              color="#007AFF"
+              tooltip="Pedidos completados exitosamente hoy"
+            />
+            <KPICard
+              title="Ticket Promedio"
+              value={`Bs ${dashboardData.ticketPromedio.toFixed(2)}`}
+              comparison={`${dashboardData.ticketPromedioCambio >= 0 ? '+' : ''}${dashboardData.ticketPromedioCambio.toFixed(1)}% vs ayer`}
+              comparisonValue={dashboardData.ticketPromedioCambio}
+              icon="receipt"
+              color="#AF52DE"
+              tooltip="Valor promedio por pedido (total ventas / pedidos)"
+            />
+          </ScrollView>
+        </View>
+        {dashboardData.metaDiaria > 0 && (
+          <View style={styles.goalSection}>
+            <View style={styles.goalHeader}>
+              <Text style={styles.goalTitle}>Meta del Día</Text>
+              <TooltipIcon tooltip="Objetivo de profit para hoy" />
+            </View>
+            <View style={styles.goalCard}>
+              <View style={styles.goalValues}>
+                <View>
+                  <Text style={styles.goalLabel}>Meta</Text>
+                  <Text style={styles.goalValue}>Bs {dashboardData.metaDiaria.toFixed(2)}</Text>
+                </View>
+                <View>
+                  <Text style={styles.goalLabel}>Actual</Text>
+                  <Text style={styles.goalValue}>Bs {dashboardData.profitHoy.toFixed(2)}</Text>
+                </View>
+                <View>
+                  <Text style={styles.goalLabel}>Progreso</Text>
+                  <Text style={[styles.goalValue, { color: dashboardData.progresoMetaDiaria >= 100 ? '#34C759' : '#FFB800' }]}>
+                    {dashboardData.progresoMetaDiaria.toFixed(0)}%
+                  </Text>
+                </View>
+              </View>
+              <View style={styles.progressBarContainer}>
+                <View style={[styles.progressBarFill, { width: `${Math.min(dashboardData.progresoMetaDiaria, 100)}%` }]} />
+              </View>
+              {dashboardData.progresoMetaDiaria >= 100 && (
+                <View style={styles.goalAchieved}>
+                  <Text style={styles.goalAchievedText}>¡Meta Alcanzada! 🎉</Text>
+                </View>
+              )}
+            </View>
+          </View>
+        )}
+
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <View style={styles.sectionTitleRow}>
+              <Text style={styles.sectionTitle}>Rendimiento - Últimos {selectedPeriod} Días</Text>
+              <TooltipIcon tooltip="Gráfica de evolución de ingresos y profits" />
+            </View>
+            <View style={styles.periodButtons}>
+              <TooltipButton
+                label="7 días"
+                tooltip="Cambiar a vista de 7 días"
+                onPress={() => setSelectedPeriod(7)}
+                variant={selectedPeriod === 7 ? 'primary' : 'secondary'}
+                size="small"
+              />
+              <TooltipButton
+                label="30 días"
+                tooltip="Cambiar a vista de 30 días"
+                onPress={() => setSelectedPeriod(30)}
+                variant={selectedPeriod === 30 ? 'primary' : 'secondary'}
+                size="small"
+              />
+            </View>
+          </View>
+          <TimelineChart 
+            data={dashboardData.timelineData}
+            showIngresos={true}
+            showProfit={true}
           />
-          <StatsCard
-            icon="receipt"
-            label="Pedidos"
-            value={stats.todayOrders.toString()}
-            growth={stats.ordersGrowth}
-            color={COLORS.info}
-          />
-          <StatsCard
-            icon="people"
-            label="Usuarios nuevos"
-            value={`+${stats.newUsers}`}
-            growth={stats.usersGrowth}
-            color={COLORS.accentGold}
-          />
-          <StatsCard
-            icon="bicycle"
-            label="Deliverys activos"
-            value={stats.activeDeliveries.toString()}
-            color={COLORS.warning}
-          />
+        </View>
+
+        <View style={styles.gridRow}>
+          <View style={[styles.gridCard, { flex: 1 }]}>
+            <View style={styles.cardHeader}>
+              <Text style={styles.cardTitle}>Estado Operativo</Text>
+              <TooltipIcon tooltip="Estado actual de repartidores" />
+            </View>
+            <View style={styles.operationalGrid}>
+              <View style={styles.operationalItem}>
+                <Ionicons name="bicycle" size={32} color="#FFB800" />
+                <Text style={styles.operationalValue}>{dashboardData.deliverysActivos}</Text>
+                <Text style={styles.operationalLabel}>Total Activos</Text>
+              </View>
+              <View style={styles.operationalItem}>
+                <Ionicons name="checkmark-circle" size={32} color="#34C759" />
+                <Text style={styles.operationalValue}>{dashboardData.deliverysDisponibles}</Text>
+                <Text style={styles.operationalLabel}>Disponibles</Text>
+              </View>
+              <View style={styles.operationalItem}>
+                <Ionicons name="time" size={32} color="#FF9500" />
+                <Text style={styles.operationalValue}>{dashboardData.deliverysOcupados}</Text>
+                <Text style={styles.operationalLabel}>Ocupados</Text>
+              </View>
+            </View>
+            <View style={styles.divider} />
+            <View style={styles.operationalGrid}>
+              <View style={styles.operationalItem}>
+                <Ionicons name="hourglass" size={32} color="#FF9500" />
+                <Text style={styles.operationalValue}>{dashboardData.pedidosPendientes}</Text>
+                <Text style={styles.operationalLabel}>Pendientes</Text>
+              </View>
+              <View style={styles.operationalItem}>
+                <Ionicons name="car" size={32} color="#007AFF" />
+                <Text style={styles.operationalValue}>{dashboardData.pedidosEnCamino}</Text>
+                <Text style={styles.operationalLabel}>En Camino</Text>
+              </View>
+              <View style={styles.operationalItem}>
+                <Ionicons name="person-add" size={32} color="#AF52DE" />
+                <Text style={styles.operationalValue}>+{dashboardData.nuevosUsuarios}</Text>
+                <Text style={styles.operationalLabel}>Nuevos Hoy</Text>
+              </View>
+            </View>
+          </View>
+
+          <View style={[styles.gridCard, { flex: 1 }]}>
+            <View style={styles.cardHeader}>
+              <Text style={styles.cardTitle}>Top 5 Productos Más Vendidos</Text>
+              <TooltipButton
+                label="Ver todos →"
+                tooltip="Ir a gestión de productos"
+                onPress={() => navigation.navigate('Products')}
+                variant="secondary"
+                size="small"
+              />
+            </View>
+            <TopProductsChart products={dashboardData.topProductos} />
+          </View>
         </View>
 
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Pedidos Recientes</Text>
-            <TouchableOpacity>
-              <Text style={styles.seeAllText}>Ver todos →</Text>
-            </TouchableOpacity>
-          </View>
-          <View style={styles.ordersTable}>
-            {recentOrders.length > 0 ? (
-              recentOrders.map(order => (
-                <OrderRow key={order.id} order={order} navigation={navigation} />
-              ))
-            ) : (
-              <Text style={styles.emptyText}>No hay pedidos recientes</Text>
-            )}
-          </View>
-        </View>
-
-        <View style={styles.doubleGrid}>
-          <View style={styles.chartCard}>
-            <Text style={styles.cardTitle}>Ventas Semanales</Text>
-            <View style={styles.chartPlaceholder}>
-              <Ionicons name="bar-chart" size={64} color={COLORS.textTertiary} />
-              <Text style={styles.placeholderText}>
-                Gráfico disponible en Firebase
-              </Text>
+            <View style={styles.sectionTitleRow}>
+              <Text style={styles.sectionTitle}>Horarios Pico de Pedidos</Text>
+              <TooltipIcon tooltip="Horas del día con mayor actividad de pedidos" />
             </View>
           </View>
+          <PeakHoursChart hoursData={dashboardData.peakHours} />
+        </View>
 
-          <View style={styles.chartCard}>
-            <Text style={styles.cardTitle}>Top 5 Productos</Text>
-            {topProducts.length > 0 ? (
-              topProducts.map((product, index) => (
-                <TopProductItem 
-                  key={product.id} 
-                  product={product} 
-                  rank={index + 1} 
-                />
-              ))
-            ) : (
-              <Text style={styles.emptyText}>Sin datos aún</Text>
-            )}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Accesos Rápidos</Text>
+          <View style={styles.quickActions}>
+            <TooltipButton
+              icon="list"
+              label="Gestionar Pedidos"
+              tooltip="Ir a gestión de pedidos"
+              onPress={() => navigation.navigate('Orders')}
+              variant="secondary"
+              size="large"
+            />
+            <TooltipButton
+              icon="add-circle"
+              label="Nuevo Producto"
+              tooltip="Crear producto en el catálogo"
+              onPress={() => navigation.navigate('Products')}
+              variant="primary"
+              size="large"
+            />
+            <TooltipButton
+              icon="wallet"
+              label="Finanzas"
+              tooltip="Ir a gestión financiera"
+              onPress={() => navigation.navigate('Financial')}
+              variant="secondary"
+              size="large"
+            />
+            <TooltipButton
+              icon="cash-outline"
+              label="Registrar Gasto"
+              tooltip="Registrar un nuevo gasto operativo"
+              onPress={() => navigation.navigate('Financial')}
+              variant="danger"
+              size="large"
+            />
           </View>
         </View>
 
-        <View style={styles.alertsSection}>
-          <Text style={styles.sectionTitle}>Solicitudes Pendientes</Text>
-          
-          {pendingDeliveries > 0 && (
-            <TouchableOpacity style={styles.alertCard}>
-              <Ionicons name="bicycle" size={24} color={COLORS.warning} />
-              <Text style={styles.alertText}>
-                {pendingDeliveries} deliverys esperando aprobación
-              </Text>
-              <Ionicons name="chevron-forward" size={20} color={COLORS.textTertiary} />
-            </TouchableOpacity>
-          )}
-
-          {outOfStock > 0 && (
-            <TouchableOpacity style={styles.alertCard}>
-              <Ionicons name="alert-circle" size={24} color={COLORS.error} />
-              <Text style={styles.alertText}>
-                {outOfStock} productos sin stock
-              </Text>
-              <Ionicons name="chevron-forward" size={20} color={COLORS.textTertiary} />
-            </TouchableOpacity>
-          )}
-
-          {pendingDeliveries === 0 && outOfStock === 0 && (
-            <View style={styles.noAlertsCard}>
-              <Ionicons name="checkmark-circle" size={48} color={COLORS.success} />
-              <Text style={styles.noAlertsText}>Todo en orden ✨</Text>
+        {alerts.length > 0 && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Alertas</Text>
+            <View style={styles.alertsContainer}>
+              {alerts.map((alert, index) => (
+                <View key={index} style={[styles.alertCard, { borderLeftColor: alert.color }]}>
+                  <Ionicons name={alert.icon} size={24} color={alert.color} />
+                  <Text style={styles.alertText}>{alert.text}</Text>
+                </View>
+              ))}
             </View>
-          )}
-        </View>
+          </View>
+        )}
 
         <View style={{ height: 40 }} />
       </ScrollView>
@@ -403,274 +458,189 @@ const AdminDashboardScreen = () => {
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
+    flex: 1
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: 32,
+    marginBottom: 24
   },
-  filterButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: COLORS.bgSecondary,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: COLORS.bgTertiary,
-    gap: 8,
-    cursor: 'pointer',
-  },
-  filterButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: COLORS.textPrimary,
-  },
-  periodMenu: {
-    position: 'absolute',
-    top: 50,
-    right: 0,
-    backgroundColor: COLORS.bgSecondary,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: COLORS.bgTertiary,
-    minWidth: 200,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    zIndex: 1000,
-  },
-  periodOption: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.bgTertiary,
-    cursor: 'pointer',
-  },
-  periodOptionActive: {
-    backgroundColor: COLORS.accentGold + '10',
-  },
-  periodOptionText: {
-    fontSize: 14,
-    color: COLORS.textSecondary,
-  },
-  periodOptionTextActive: {
-    color: COLORS.accentGold,
-    fontWeight: '600',
-  },
-  welcomeText: {
+  title: {
     fontSize: 32,
     fontWeight: '700',
-    color: COLORS.textPrimary,
-    marginBottom: 8,
+    color: '#FFFFFF',
+    marginBottom: 4
   },
-  dateText: {
+  subtitle: {
     fontSize: 16,
-    color: COLORS.textSecondary,
+    color: '#8E8E93'
   },
-  statsGrid: {
+  headerRight: {
     flexDirection: 'row',
-    gap: 20,
-    marginBottom: 32,
-  },
-  statsCard: {
-    flex: 1,
-    backgroundColor: COLORS.bgSecondary,
-    borderRadius: 16,
-    padding: 24,
-    borderWidth: 1,
-    borderColor: COLORS.bgTertiary,
-  },
-  statsIcon: {
-    width: 56,
-    height: 56,
-    borderRadius: 12,
-    justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 16,
+    gap: 12
   },
-  statsLabel: {
-    fontSize: 14,
-    color: COLORS.textSecondary,
-    marginBottom: 8,
+  updateText: {
+    fontSize: 12,
+    color: '#8E8E93'
   },
-  statsValue: {
-    fontSize: 28,
+  kpiScroll: {
+    marginBottom: 32
+  },
+  kpiContainer: {
+    paddingHorizontal: 0,
+    gap: 16
+  },
+  goalSection: {
+    marginBottom: 32
+  },
+  goalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 16
+  },
+  goalTitle: {
+    fontSize: 20,
     fontWeight: '700',
-    color: COLORS.textPrimary,
-    marginBottom: 8,
+    color: '#FFFFFF'
   },
-  growthContainer: {
+  goalCard: {
+    backgroundColor: '#1C1C1E',
+    borderRadius: 20,
+    padding: 24,
+    borderWidth: 2,
+    borderColor: '#FFB800'
+  },
+  goalValues: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
+    justifyContent: 'space-around',
+    marginBottom: 20
   },
-  growthText: {
-    fontSize: 14,
-    fontWeight: '600',
+  goalLabel: {
+    fontSize: 12,
+    color: '#8E8E93',
+    marginBottom: 4
+  },
+  goalValue: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: '#FFFFFF'
+  },
+  progressBarContainer: {
+    height: 12,
+    backgroundColor: '#2C2C2E',
+    borderRadius: 6,
+    overflow: 'hidden'
+  },
+  progressBarFill: {
+    height: '100%',
+    backgroundColor: '#FFB800',
+    borderRadius: 6
+  },
+  goalAchieved: {
+    marginTop: 16,
+    padding: 12,
+    backgroundColor: '#34C75920',
+    borderRadius: 12,
+    alignItems: 'center'
+  },
+  goalAchievedText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#34C759'
   },
   section: {
-    marginBottom: 32,
+    marginBottom: 32
   },
   sectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 16
+  },
+  sectionTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8
   },
   sectionTitle: {
     fontSize: 20,
     fontWeight: '700',
-    color: COLORS.textPrimary,
+    color: '#FFFFFF'
   },
-  seeAllText: {
-    fontSize: 14,
-    color: COLORS.accentGold,
-    fontWeight: '600',
-  },
-  ordersTable: {
-    backgroundColor: COLORS.bgSecondary,
-    borderRadius: 16,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: COLORS.bgTertiary,
-  },
-  orderRow: {
+  periodButtons: {
     flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.bgTertiary,
+    gap: 8
   },
-  orderNumber: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: COLORS.textPrimary,
-    width: 100,
-  },
-  orderCustomer: {
-    fontSize: 14,
-    color: COLORS.textSecondary,
-    flex: 1,
-  },
-  orderAmount: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: COLORS.textPrimary,
-    width: 100,
-  },
-  statusBadge: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 8,
-  },
-  statusText: {
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  doubleGrid: {
+  gridRow: {
     flexDirection: 'row',
     gap: 20,
-    marginBottom: 32,
+    marginBottom: 32
   },
-  chartCard: {
-    flex: 1,
-    backgroundColor: COLORS.bgSecondary,
-    borderRadius: 16,
-    padding: 24,
-    borderWidth: 1,
-    borderColor: COLORS.bgTertiary,
+  gridCard: {
+    backgroundColor: '#1C1C1E',
+    borderRadius: 20,
+    padding: 24
+  },
+  cardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20
   },
   cardTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: COLORS.textPrimary,
-    marginBottom: 16,
+    color: '#FFFFFF'
   },
-  chartPlaceholder: {
-    height: 200,
-    justifyContent: 'center',
-    alignItems: 'center',
-    opacity: 0.5,
-  },
-  placeholderText: {
-    fontSize: 14,
-    color: COLORS.textTertiary,
-    marginTop: 12,
-  },
-  topProductItem: {
+  operationalGrid: {
     flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.bgTertiary,
+    justifyContent: 'space-around',
+    paddingVertical: 16
   },
-  rankBadge: {
-    width: 32,
-    height: 32,
-    borderRadius: 8,
-    backgroundColor: COLORS.accentGold + '20',
-    justifyContent: 'center',
+  operationalItem: {
     alignItems: 'center',
-    marginRight: 12,
+    gap: 8
   },
-  rankText: {
-    fontSize: 16,
+  operationalValue: {
+    fontSize: 24,
     fontWeight: '700',
-    color: COLORS.accentGold,
+    color: '#FFFFFF'
   },
-  productName: {
-    flex: 1,
-    fontSize: 14,
-    color: COLORS.textPrimary,
-  },
-  productSales: {
+  operationalLabel: {
     fontSize: 12,
-    color: COLORS.textTertiary,
+    color: '#8E8E93',
+    textAlign: 'center'
   },
-  alertsSection: {
-    marginBottom: 32,
+  divider: {
+    height: 1,
+    backgroundColor: '#2C2C2E',
+    marginVertical: 8
+  },
+  quickActions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12
+  },
+  alertsContainer: {
+    gap: 12
   },
   alertCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.bgSecondary,
+    gap: 12,
+    backgroundColor: '#1C1C1E',
     borderRadius: 12,
     padding: 16,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: COLORS.bgTertiary,
+    borderLeftWidth: 4
   },
   alertText: {
     flex: 1,
     fontSize: 14,
-    color: COLORS.textPrimary,
-    marginLeft: 12,
-  },
-  noAlertsCard: {
-    backgroundColor: COLORS.success + '10',
-    borderRadius: 12,
-    padding: 32,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: COLORS.success + '30',
-  },
-  noAlertsText: {
-    fontSize: 16,
-    color: COLORS.textPrimary,
-    marginTop: 12,
-  },
-  emptyText: {
-    textAlign: 'center',
-    fontSize: 14,
-    color: COLORS.textTertiary,
-    paddingVertical: 32,
-  },
+    color: '#FFFFFF'
+  }
 });
 
 export default AdminDashboardScreen;
