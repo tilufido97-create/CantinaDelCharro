@@ -6,6 +6,7 @@ import { COLORS, SPACING } from '../../constants/theme';
 import { logoutAdmin } from '../utils/adminAuth';
 import { useNavigation } from '@react-navigation/native';
 import { MOCK_NOTIFICATIONS } from '../constants/mockDataAdmin';
+import { logger } from '../../utils/logger';
 
 export default function AdminTopBar({ title, user }) {
   const navigation = useNavigation();
@@ -29,20 +30,83 @@ export default function AdminTopBar({ title, user }) {
   const unreadCount = notifications.filter(n => !n.read).length;
 
   const handleLogout = () => {
+    console.log("🚑 LOGOUT - Usuario solicitó cerrar sesión");
+    logger.info('ADMIN_TOPBAR', 'Usuario solicitó logout', {
+      userEmail: user?.email,
+      userName: user?.name
+    });
+    
     Alert.alert(
-      'Cerrar sesión',
-      '¿Estás seguro que deseas salir?',
+      '🚑 Cerrar Sesión',
+      `Hola ${user?.name || 'Admin'},\n\n¿Estás seguro que deseas cerrar tu sesión en el panel administrativo?\n\nTendrás que volver a iniciar sesión para acceder.`,
       [
-        { text: 'Cancelar', style: 'cancel' },
+        { 
+          text: '❌ No, Continuar',
+          style: 'cancel',
+          onPress: () => {
+            console.log("❌ LOGOUT CANCELADO POR USUARIO");
+            logger.info('ADMIN_TOPBAR', 'Logout cancelado por usuario');
+          }
+        },
         {
-          text: 'Salir',
+          text: '✅ Sí, Cerrar Sesión',
           style: 'destructive',
           onPress: async () => {
-            await logoutAdmin();
-            navigation.replace('AdminLogin');
+            console.log("🚀 ====================================");
+            console.log("🚀 EJECUTANDO LOGOUT CONFIRMADO");
+            console.log("🚀 ====================================");
+            console.log(`👤 Usuario: ${user?.name || 'Admin'}`);
+            console.log(`📧 Email: ${user?.email || 'N/A'}`);
+            console.log(`🕰 Timestamp: ${new Date().toISOString()}`);
+            
+            logger.info('ADMIN_TOPBAR', 'Ejecutando logout confirmado', {
+              userName: user?.name,
+              userEmail: user?.email,
+              userRole: user?.role
+            });
+            
+            try {
+              await logoutAdmin();
+              
+              console.log("✅ ====================================");
+              console.log("✅ LOGOUT COMPLETADO EXITOSAMENTE");
+              console.log("✅ ====================================");
+              console.log("🎯 Navegando a pantalla de login...");
+              
+              logger.success('ADMIN_TOPBAR', 'Logout completado exitosamente');
+              
+              navigation.replace('AdminLogin');
+              
+              console.log("✅ NAVEGACIÓN COMPLETADA");
+              
+            } catch (error) {
+              console.error("❌ ====================================");
+              console.error("❌ ERROR DURANTE LOGOUT");
+              console.error("❌ ====================================");
+              console.error(`💥 Error: ${error.message}`);
+              console.error(`📍 Stack: ${error.stack}`);
+              
+              logger.error('ADMIN_TOPBAR', 'Error durante logout', {
+                error: error.message,
+                stack: error.stack
+              });
+              
+              Alert.alert(
+                '❌ Error de Sistema',
+                'Hubo un problema al cerrar la sesión. Por favor, intenta nuevamente o recarga la página.',
+                [{ text: 'Entendido', style: 'default' }]
+              );
+            }
           }
         }
-      ]
+      ],
+      {
+        cancelable: true,
+        onDismiss: () => {
+          console.log("⚠️ MODAL DE LOGOUT CERRADO SIN ACCIÓN");
+          logger.info('ADMIN_TOPBAR', 'Modal de logout cerrado sin acción');
+        }
+      }
     );
   };
 
@@ -71,7 +135,8 @@ export default function AdminTopBar({ title, user }) {
         </View>
 
         <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-          <Ionicons name="log-out-outline" size={24} color={COLORS.semantic.error} />
+          <Ionicons name="log-out-outline" size={20} color={COLORS.semantic.error} />
+          <Text style={styles.logoutText}>Cerrar Sesión</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -141,7 +206,21 @@ const styles = StyleSheet.create({
     color: COLORS.text.primary,
   },
   logoutButton: {
-    padding: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 8,
+    backgroundColor: COLORS.background.tertiary,
+    borderWidth: 1,
+    borderColor: COLORS.semantic.error + '40',
     cursor: 'pointer',
+    transition: 'all 0.2s ease',
+  },
+  logoutText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: COLORS.semantic.error,
   },
 });

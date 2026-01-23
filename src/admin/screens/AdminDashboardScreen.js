@@ -5,6 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import AdminLayout from '../components/AdminLayout';
 import { getCurrentAdmin } from '../utils/adminAuth';
+import { logger } from '../../utils/logger';
 import KPICard from '../components/KPICard';
 import TimelineChart from '../components/TimelineChart';
 import TopProductsChart from '../components/TopProductsChart';
@@ -146,8 +147,28 @@ const AdminDashboardScreen = () => {
   }, [loadDashboardData]);
 
   useEffect(() => {
+    console.log("🎯 ADMIN DASHBOARD - Iniciando...");
+    logger.info('ADMIN_DASHBOARD', 'Dashboard iniciado');
+    
     const loadUser = async () => {
+      console.log("👤 Cargando usuario admin...");
       const admin = await getCurrentAdmin();
+      
+      if (admin) {
+        console.log("✅ USUARIO ADMIN CARGADO:", {
+          email: admin.email,
+          name: admin.name,
+          role: admin.role
+        });
+        logger.success('ADMIN_DASHBOARD', 'Usuario admin cargado', {
+          email: admin.email,
+          role: admin.role
+        });
+      } else {
+        console.log("❌ NO SE ENCONTRÓ USUARIO ADMIN");
+        logger.error('ADMIN_DASHBOARD', 'No se encontró usuario admin');
+      }
+      
       setUser(admin);
     };
     loadUser();
@@ -155,12 +176,22 @@ const AdminDashboardScreen = () => {
 
   useEffect(() => {
     const loadData = async () => {
+      console.log("📊 CARGANDO DATOS DEL DASHBOARD...");
+      logger.info('ADMIN_DASHBOARD', 'Cargando datos del dashboard');
+      
       setIsLoading(true);
       await loadDashboardData();
       setIsLoading(false);
+      
+      console.log("✅ DATOS DEL DASHBOARD CARGADOS");
+      logger.success('ADMIN_DASHBOARD', 'Datos del dashboard cargados exitosamente');
     };
+    
     if (user) {
+      console.log("🚀 USUARIO DISPONIBLE - Iniciando carga de datos");
       loadData();
+    } else {
+      console.log("⚠️ ESPERANDO USUARIO...");
     }
   }, [user, loadDashboardData]);
 
@@ -188,7 +219,16 @@ const AdminDashboardScreen = () => {
     return alertList;
   }, [dashboardData]);
 
-  if (!user) return null;
+  if (!user) {
+    console.log("⚠️ ADMIN DASHBOARD - Sin usuario, no renderizando");
+    return null;
+  }
+
+  console.log("🎆 ADMIN DASHBOARD - Renderizando con usuario:", {
+    email: user.email,
+    name: user.name,
+    role: user.role
+  });
 
   return (
     <AdminLayout title="Dashboard Ejecutivo" user={user}>
@@ -206,7 +246,9 @@ const AdminDashboardScreen = () => {
         <View style={styles.header}>
           <View>
             <Text style={styles.title}>Dashboard Ejecutivo</Text>
-            <Text style={styles.subtitle}>Vista general del negocio</Text>
+            <Text style={styles.subtitle}>
+              Bienvenido {user?.name || 'Admin'} - {user?.roleInfo?.name || user?.role || 'Administrador'}
+            </Text>
           </View>
           <View style={styles.headerRight}>
             <Text style={styles.updateText}>{getTimeSinceUpdate()}</Text>
