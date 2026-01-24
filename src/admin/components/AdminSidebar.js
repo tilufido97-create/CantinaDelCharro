@@ -18,7 +18,7 @@ const MENU_ITEMS = [
   { id: 'admins', icon: 'shield-checkmark', label: 'Administradores', permission: 'super_only' },
 ];
 
-export default function AdminSidebar({ user, activeScreen, onNavigate }) {
+export default function AdminSidebar({ user, activeScreen, onNavigate, onClose }) {
   const getScreenId = (screenName) => {
     const screenMap = {
       'AdminDashboard': 'dashboard',
@@ -55,6 +55,12 @@ export default function AdminSidebar({ user, activeScreen, onNavigate }) {
 
   return (
     <View style={styles.sidebar}>
+      {onClose && (
+        <TouchableOpacity style={styles.closeButton} onPress={onClose}>
+          <Ionicons name="close" size={24} color="#8E8E93" />
+        </TouchableOpacity>
+      )}
+      
       <View style={styles.header}>
         <Text style={styles.logo}>🤠</Text>
         <Text style={styles.title}>EL CHARRO</Text>
@@ -112,6 +118,15 @@ const styles = StyleSheet.create({
     height: '100vh',
     display: 'flex',
     flexDirection: 'column',
+    position: 'relative',
+  },
+  closeButton: {
+    position: 'absolute',
+    top: 16,
+    right: 16,
+    zIndex: 10,
+    padding: 8,
+    cursor: 'pointer',
   },
   header: {
     padding: SPACING.xl,

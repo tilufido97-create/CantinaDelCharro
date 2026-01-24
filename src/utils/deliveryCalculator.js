@@ -14,6 +14,19 @@ export const VEHICLE_COSTS = {
 };
 
 export function calculateDeliveryFee(distanceKm) {
+  // Validar que distanceKm sea un número válido
+  if (!distanceKm || typeof distanceKm !== 'number' || isNaN(distanceKm)) {
+    console.warn('⚠️ distanceKm inválido:', distanceKm);
+    return {
+      distance: 0,
+      vehicle: 'moto',
+      baseCost: 0,
+      profit: 0,
+      total: 0,
+      breakdown: '🏍️ Moto • 0.0 km'
+    };
+  }
+  
   const vehicle = distanceKm <= 3 ? 'moto' : 'auto';
   const baseCost = VEHICLE_COSTS[vehicle].total * distanceKm;
   const profit = baseCost * 0.05;

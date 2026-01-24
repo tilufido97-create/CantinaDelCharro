@@ -1,10 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Modal, TextInput, Alert, KeyboardAvoidingView, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Location from 'expo-location';
 import { COLORS, TYPOGRAPHY, SPACING, BORDER_RADIUS } from '../../constants/theme';
 import Button from '../../components/common/Button';
+import * as googleMapsService from '../../services/googleMapsService';
+import { DELIVERY_CONFIG } from '../../constants/config';
 
 export default function AddressScreen({ navigation }) {
   const [addresses, setAddresses] = useState([]);
@@ -18,6 +21,7 @@ export default function AddressScreen({ navigation }) {
   const [number, setNumber] = useState('');
   const [phone, setPhone] = useState('');
   const [reference, setReference] = useState('');
+  const [validating, setValidating] = useState(false);
 
   useEffect(() => {
     loadAddresses();
@@ -80,8 +84,51 @@ export default function AddressScreen({ navigation }) {
   };
 
   const getRandomDistance = (zoneName) => {
-    // Distancia aleatoria entre 1 y 8 km
     return (Math.random() * 7 + 1).toFixed(1);
+  };
+  
+  const validateAddressDistance = async (address) => {
+    try {
+      setValidating(true);
+      const fullAddress = `${address.street} ${address.number}, ${address.zone}, La Paz, Bolivia`;
+      
+      try {
+        const coords = await googleMapsService.geocodeAddress(fullAddress);
+        const distanceData = await googleMapsService.calculateDistance(
+          googleMapsService.STORE_LOCATION,
+          coords
+        );
+        
+        const MAX_DISTANCE = DELIVERY_CONFIG.MAX_DELIVERY_DISTANCE;
+        
+        if (distanceData.distanceKM > MAX_DISTANCE) {
+          return new Promise((resolve) => {
+            Alert.alert(
+              'Dirección Fuera de Cobertura',
+              `Tu dirección está a ${distanceData.distanceKM} km de nuestro local.\n\nNuestra cobertura máxima es de ${MAX_DISTANCE} km.\n\n¿Deseas agregar esta dirección de todas formas?`,
+              [
+                { text: 'No', style: 'cancel', onPress: () => resolve(false) },
+                { text: 'Sí, Agregar', onPress: () => resolve(true) }
+              ]
+            );
+          });
+        }
+        
+        address.distance = distanceData.distanceKM;
+        address.distanceKM = distanceData.distanceKM;
+        return true;
+        
+      } catch (geoError) {
+        console.log('No se pudo validar distancia exacta:', geoError);
+        return true;
+      }
+      
+    } catch (error) {
+      console.error('Error validando dirección:', error);
+      return true;
+    } finally {
+      setValidating(false);
+    }
   };
 
   const handleSaveAddress = async () => {
@@ -90,7 +137,6 @@ export default function AddressScreen({ navigation }) {
       return;
     }
 
-    // Validar teléfono boliviano
     const phoneRegex = /^[67]\d{7}$/;
     if (!phoneRegex.test(phone)) {
       Alert.alert('Teléfono inválido', 'Ingresa un número válido (ej: 70123456)');
@@ -109,6 +155,9 @@ export default function AddressScreen({ navigation }) {
       longitude: location?.longitude || null,
       isDefault: addresses.length === 0
     };
+    
+    const isValid = await validateAddressDistance(newAddress);
+    if (!isValid) return;
 
     let updated;
     if (editingAddress) {
@@ -202,7 +251,15 @@ export default function AddressScreen({ navigation }) {
                 {addr.reference && (
                   <Text style={styles.addressRef}>Ref: {addr.reference}</Text>
                 )}
-                <Text style={styles.addressDistance}>{addr.distance} km de la tienda</Text>
+                <View style={styles.distanceRow}>
+                  <Ionicons name="location" size={12} color={COLORS.accent.gold} />
+                  <Text style={styles.addressDistance}>{addr.distance} km de la tienda</Text>
+                  {addr.distanceKM && addr.distanceKM > 15 && (
+                    <View style={styles.outOfRangeBadge}>
+                      <Text style={styles.outOfRangeText}>Fuera de cobertura</Text>
+                    </View>
+                  )}
+                </View>
               </View>
             </View>
             <View style={styles.addressActions}>
@@ -318,8 +375,9 @@ export default function AddressScreen({ navigation }) {
                   />
                   <View style={{ width: SPACING.md }} />
                   <Button
-                    title="Guardar"
+                    title={validating ? "Validando..." : "Guardar"}
                     onPress={handleSaveAddress}
+                    disabled={validating}
                     fullWidth
                   />
                 </View>
@@ -351,7 +409,10 @@ const styles = StyleSheet.create({
   addressStreet: { fontSize: TYPOGRAPHY.sizes.base, fontWeight: TYPOGRAPHY.weights.semibold, color: COLORS.text.primary },
   addressZone: { fontSize: TYPOGRAPHY.sizes.sm, color: COLORS.text.secondary, marginTop: SPACING.xs },
   addressRef: { fontSize: TYPOGRAPHY.sizes.sm, color: COLORS.text.tertiary, marginTop: SPACING.xs },
-  addressDistance: { fontSize: TYPOGRAPHY.sizes.xs, color: COLORS.accent.gold, marginTop: SPACING.xs },
+  addressDistance: { fontSize: TYPOGRAPHY.sizes.xs, color: COLORS.accent.gold, marginLeft: SPACING.xs },
+  distanceRow: { flexDirection: 'row', alignItems: 'center', marginTop: SPACING.xs },
+  outOfRangeBadge: { backgroundColor: '#FF3B3020', paddingHorizontal: SPACING.sm, paddingVertical: 2, borderRadius: BORDER_RADIUS.sm, marginLeft: SPACING.sm },
+  outOfRangeText: { fontSize: 10, color: '#FF3B30', fontWeight: TYPOGRAPHY.weights.semibold },
   addressActions: { flexDirection: 'row', gap: SPACING.lg },
   actionButton: { fontSize: TYPOGRAPHY.sizes.sm, color: COLORS.accent.gold, fontWeight: TYPOGRAPHY.weights.medium },
   deleteButton: { color: COLORS.error },

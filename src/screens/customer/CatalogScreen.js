@@ -1,15 +1,311 @@
-import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { COLORS, TYPOGRAPHY, SPACING } from '../../constants/theme';
+import React, { useState, useEffect, useCallback } from 'react';
+import {
+  SafeAreaView, ScrollView, View, Text, TextInput,
+  TouchableOpacity, StyleSheet, StatusBar, ActivityIndicator,
+  Alert, RefreshControl, FlatList
+} from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import StoreHeader from '../../components/catalog/StoreHeader';
+import CategoryChip from '../../components/catalog/CategoryChip';
+import ProductListItem from '../../components/catalog/ProductListItem';
+import FloatingCartBar from '../../components/catalog/FloatingCartBar';
+import { subscribeToActiveProducts } from '../../services/firebaseProductService';
+import { isFirebaseConfigured } from '../../config/firebaseConfig';
 
-export default function CatalogScreen() {
+const CATEGORIES = [
+  { id: 'all', icon: 'apps', label: 'Todo' },
+  { id: 'cerveza', icon: 'beer', label: 'Cervezas' },
+  { id: 'vino', icon: 'wine', label: 'Vinos' },
+  { id: 'whisky', icon: 'flask', label: 'Whisky' },
+  { id: 'snacks', icon: 'fast-food', label: 'Snacks' },
+  { id: 'ron', icon: 'wine', label: 'Ron' },
+  { id: 'vodka', icon: 'wine', label: 'Vodka' },
+];
+
+export default function CatalogScreen({ navigation }) {
+  const [products, setProducts] = useState([]);
+  const [filteredProducts, setFilteredProducts] = useState([]);
+  const [selectedCategory, setSelectedCategory] = useState('all');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [cartItems, setCartItems] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+
+  useEffect(() => {
+    let unsubscribeProducts = null;
+    
+    const init = async () => {
+      unsubscribeProducts = await loadProducts();
+      await loadCart();
+    };
+    
+    init();
+    
+    return () => {
+      if (unsubscribeProducts) {
+        console.log('🔌 Desconectando listener de Firebase');
+        unsubscribeProducts();
+      }
+    };
+  }, []);
+
+  const loadInitialData = async () => {
+    try {
+      setIsLoading(true);
+      await loadProducts();
+      await loadCart();
+    } catch (error) {
+      console.error('Error loading data:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const loadProducts = async () => {
+    try {
+      // Verificar si Firebase está configurado
+      if (isFirebaseConfigured()) {
+        console.log('🔥 Cargando productos desde Firebase...');
+        
+        // Listener en tiempo real de Firebase
+        const unsubscribe = subscribeToActiveProducts(
+          (firebaseProducts) => {
+            console.log(`✅ ${firebaseProducts.length} productos recibidos de Firebase`);
+            setProducts(firebaseProducts);
+            setFilteredProducts(firebaseProducts);
+            setIsLoading(false);
+            
+            // Guardar en AsyncStorage como backup
+            AsyncStorage.setItem('all_products', JSON.stringify(firebaseProducts));
+          },
+          (error) => {
+            console.error('❌ Error en listener de Firebase:', error);
+            // Fallback a AsyncStorage
+            loadProductsFromStorage();
+          }
+        );
+        
+        // Guardar unsubscribe para cleanup
+        return unsubscribe;
+      } else {
+        console.log('⚠️ Firebase no configurado, usando AsyncStorage');
+        loadProductsFromStorage();
+      }
+    } catch (error) {
+      console.error('Error loading products:', error);
+      loadProductsFromStorage();
+    }
+  };
+  
+  const loadProductsFromStorage = async () => {
+    try {
+      const productsData = await AsyncStorage.getItem('all_products');
+      if (productsData) {
+        const prods = JSON.parse(productsData);
+        setProducts(prods);
+        setFilteredProducts(prods);
+      } else {
+        // Cargar productos mock si no hay datos
+        const { MOCK_PRODUCTS } = require('../../constants/mockData');
+        const mockProds = MOCK_PRODUCTS.map(p => ({
+          id: p.id,
+          nombre: p.name,
+          descripcion: p.description,
+          precio: p.price,
+          descuento: p.discount,
+          stock: p.stock,
+          categoria: p.category.toLowerCase(),
+          imagenURL: p.images?.[0] || null,
+          activo: true,
+          rating: 4.5
+        }));
+        setProducts(mockProds);
+        setFilteredProducts(mockProds);
+        await AsyncStorage.setItem('all_products', JSON.stringify(mockProds));
+      }
+    } catch (error) {
+      console.error('Error loading from storage:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const loadCart = async () => {
+    try {
+      const cartData = await AsyncStorage.getItem('cart_items');
+      if (cartData) {
+        setCartItems(JSON.parse(cartData));
+      }
+    } catch (error) {
+      console.error('Error loading cart:', error);
+    }
+  };
+
+  const filterByCategory = useCallback((category) => {
+    setSelectedCategory(category);
+    setSearchQuery('');
+    
+    if (category === 'all') {
+      setFilteredProducts(products);
+      return;
+    }
+    
+    const filtered = products.filter(p => 
+      (p.categoria || p.category || '').toLowerCase() === category.toLowerCase()
+    );
+    
+    setFilteredProducts(filtered);
+  }, [products]);
+
+  const handleSearch = useCallback((text) => {
+    setSearchQuery(text);
+    
+    if (text.trim() === '') {
+      filterByCategory(selectedCategory);
+      return;
+    }
+    
+    const query = text.toLowerCase();
+    const filtered = products.filter(p =>
+      (p.nombre || p.name || '').toLowerCase().includes(query) ||
+      (p.descripcion || p.description || '').toLowerCase().includes(query) ||
+      (p.categoria || p.category || '').toLowerCase().includes(query)
+    );
+    
+    setFilteredProducts(filtered);
+  }, [products, selectedCategory, filterByCategory]);
+
+  const handleAddToCart = async (product) => {
+    try {
+      if ((product.stock || 0) === 0) {
+        Alert.alert('Producto agotado', 'Este producto no está disponible');
+        return;
+      }
+      
+      const cartData = await AsyncStorage.getItem('cart_items');
+      let cart = cartData ? JSON.parse(cartData) : [];
+      
+      const existingIndex = cart.findIndex(item => item.id === product.id);
+      
+      if (existingIndex >= 0) {
+        cart[existingIndex].quantity = (cart[existingIndex].quantity || 1) + 1;
+      } else {
+        cart.push({ ...product, quantity: 1 });
+      }
+      
+      await AsyncStorage.setItem('cart_items', JSON.stringify(cart));
+      setCartItems(cart);
+      
+    } catch (error) {
+      console.error('Error adding to cart:', error);
+      Alert.alert('Error', 'No se pudo agregar al carrito');
+    }
+  };
+
+  const getCartQuantity = (productId) => {
+    const item = cartItems.find(i => i.id === productId);
+    return item ? item.quantity || 0 : 0;
+  };
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await loadInitialData();
+    setRefreshing(false);
+  };
+
+  if (isLoading) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <StatusBar barStyle="light-content" />
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#FFB800" />
+          <Text style={styles.loadingText}>Cargando productos...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.content}>
-        <Text style={styles.title}>📚 Catálogo</Text>
-        <Text style={styles.subtitle}>Próximamente...</Text>
+      <StatusBar barStyle="light-content" />
+      
+      {/* Store Header */}
+      <StoreHeader onBackPress={() => navigation.goBack()} />
+
+      {/* Search Bar */}
+      <View style={styles.searchContainer}>
+        <View style={styles.searchBar}>
+          <Ionicons name="search" size={20} color="#8E8E93" />
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Buscar productos..."
+            placeholderTextColor="#8E8E93"
+            value={searchQuery}
+            onChangeText={handleSearch}
+          />
+        </View>
       </View>
+
+      {/* Categories */}
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={styles.categoriesScroll}
+        contentContainerStyle={styles.categoriesContent}
+      >
+        {CATEGORIES.map(cat => (
+          <CategoryChip
+            key={cat.id}
+            icon={cat.icon}
+            label={cat.label}
+            active={selectedCategory === cat.id}
+            onPress={() => filterByCategory(cat.id)}
+          />
+        ))}
+      </ScrollView>
+
+      {/* Section Title */}
+      <View style={styles.sectionHeader}>
+        <Text style={styles.sectionTitle}>BESTSELLER</Text>
+      </View>
+
+      {/* Products List */}
+      <FlatList
+        data={filteredProducts}
+        keyExtractor={(item) => item.id}
+        renderItem={({ item }) => (
+          <ProductListItem
+            product={item}
+            onPress={() => navigation.navigate('ProductDetail', { product: item })}
+            onAddToCart={handleAddToCart}
+            cartQuantity={getCartQuantity(item.id)}
+          />
+        )}
+        ListEmptyComponent={
+          <View style={styles.emptyState}>
+            <Ionicons name="search" size={64} color="#8E8E93" />
+            <Text style={styles.emptyText}>No se encontraron productos</Text>
+            <TouchableOpacity onPress={() => filterByCategory('all')}>
+              <Text style={styles.clearSearch}>Ver todos</Text>
+            </TouchableOpacity>
+          </View>
+        }
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor="#FFB800"
+          />
+        }
+        contentContainerStyle={{ paddingBottom: 100 }}
+      />
+
+      {/* Floating Cart Bar */}
+      <FloatingCartBar
+        cartItems={cartItems}
+        onPress={() => navigation.navigate('CartTab')}
+      />
     </SafeAreaView>
   );
 }
@@ -17,21 +313,75 @@ export default function CatalogScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.bg.primary,
+    backgroundColor: '#000000',
   },
-  content: {
+  loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: SPACING.lg,
   },
-  title: {
-    ...TYPOGRAPHY.h1,
-    color: COLORS.text.primary,
-    marginBottom: SPACING.md,
+  loadingText: {
+    marginTop: 16,
+    fontSize: 16,
+    color: '#8E8E93',
   },
-  subtitle: {
-    ...TYPOGRAPHY.body,
-    color: COLORS.text.secondary,
+  searchContainer: {
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    backgroundColor: '#000000',
+    borderBottomWidth: 1,
+    borderBottomColor: '#1C1C1E',
+  },
+  searchBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#1C1C1E',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    height: 48,
+    gap: 12,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 16,
+    color: '#FFFFFF',
+  },
+  categoriesScroll: {
+    backgroundColor: '#000000',
+    borderBottomWidth: 1,
+    borderBottomColor: '#1C1C1E',
+  },
+  categoriesContent: {
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    gap: 12,
+  },
+  sectionHeader: {
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    backgroundColor: '#000000',
+    borderBottomWidth: 1,
+    borderBottomColor: '#1C1C1E',
+  },
+  sectionTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#8E8E93',
+    letterSpacing: 1,
+  },
+  emptyState: {
+    alignItems: 'center',
+    paddingVertical: 64,
+  },
+  emptyText: {
+    fontSize: 16,
+    color: '#8E8E93',
+    marginTop: 16,
+    marginBottom: 24,
+  },
+  clearSearch: {
+    fontSize: 16,
+    color: '#FFB800',
+    fontWeight: '600',
   },
 });

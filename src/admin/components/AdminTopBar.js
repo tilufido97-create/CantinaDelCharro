@@ -8,7 +8,7 @@ import { useNavigation } from '@react-navigation/native';
 import { MOCK_NOTIFICATIONS } from '../constants/mockDataAdmin';
 import { logger } from '../../utils/logger';
 
-export default function AdminTopBar({ title, user }) {
+export default function AdminTopBar({ title, user, showMenuButton = false, onMenuPress }) {
   const navigation = useNavigation();
   const [notifications, setNotifications] = useState([]);
   const [showNotifications, setShowNotifications] = useState(false);
@@ -112,7 +112,14 @@ export default function AdminTopBar({ title, user }) {
 
   return (
     <View style={styles.topBar}>
-      <Text style={styles.title}>{title || 'Dashboard'}</Text>
+      <View style={styles.leftSection}>
+        {showMenuButton && (
+          <TouchableOpacity style={styles.menuButton} onPress={onMenuPress}>
+            <Ionicons name="menu" size={28} color={COLORS.text.primary} />
+          </TouchableOpacity>
+        )}
+        <Text style={styles.title}>{title || 'Dashboard'}</Text>
+      </View>
 
       <View style={styles.rightSection}>
         {unreadCount > 0 && (
@@ -152,7 +159,17 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 32,
+    paddingHorizontal: 20,
+  },
+  leftSection: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+    flex: 1,
+  },
+  menuButton: {
+    padding: 8,
+    cursor: 'pointer',
   },
   title: {
     fontSize: 24,

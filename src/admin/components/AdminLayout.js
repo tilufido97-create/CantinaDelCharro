@@ -1,14 +1,17 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, StyleSheet, Platform, TouchableOpacity, Text } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../../constants/theme';
 import AdminSidebar from './AdminSidebar';
 import AdminTopBar from './AdminTopBar';
+import { useResponsive } from '../hooks/useResponsive';
 
 export default function AdminLayout({ children, title, user, showBackButton = false }) {
   const navigation = useNavigation();
   const route = useRoute();
+  const responsive = useResponsive();
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   
   if (Platform.OS !== 'web') {
     return children;
@@ -34,17 +37,44 @@ export default function AdminLayout({ children, title, user, showBackButton = fa
     const screenName = screenMap[screenId];
     if (screenName) {
       navigation.navigate(screenName);
+      if (!responsive.isDesktop) setSidebarOpen(false);
     }
   };
   
   return (
     <View style={styles.container}>
-      <AdminSidebar user={user} activeScreen={currentScreen} onNavigate={handleNavigate} />
+      {/* Sidebar - Desktop: siempre visible, Mobile/Tablet: overlay */}
+      {responsive.isDesktop ? (
+        <AdminSidebar user={user} activeScreen={currentScreen} onNavigate={handleNavigate} />
+      ) : (
+        sidebarOpen && (
+          <>
+            <TouchableOpacity 
+              style={styles.overlay} 
+              activeOpacity={1}
+              onPress={() => setSidebarOpen(false)}
+            />
+            <View style={styles.sidebarMobile}>
+              <AdminSidebar 
+                user={user} 
+                activeScreen={currentScreen} 
+                onNavigate={handleNavigate}
+                onClose={() => setSidebarOpen(false)}
+              />
+            </View>
+          </>
+        )
+      )}
       
       <View style={styles.mainContent}>
-        <AdminTopBar title={title} user={user} />
+        <AdminTopBar 
+          title={title} 
+          user={user}
+          showMenuButton={!responsive.isDesktop}
+          onMenuPress={() => setSidebarOpen(true)}
+        />
         
-        <View style={styles.content}>
+        <View style={[styles.content, { maxWidth: responsive.contentMaxWidth }]}>
           {showBackButton && (
             <TouchableOpacity 
               style={styles.backButton}
@@ -68,6 +98,27 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.background.primary,
     height: '100vh',
   },
+  overlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    zIndex: 998,
+  },
+  sidebarMobile: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    bottom: 0,
+    width: 280,
+    zIndex: 999,
+    shadowColor: '#000',
+    shadowOffset: { width: 2, height: 0 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+  },
   mainContent: {
     flex: 1,
     display: 'flex',
@@ -77,9 +128,12 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
-    padding: 32,
+    padding: 20,
+    paddingHorizontal: 20,
     overflowY: 'scroll',
     overflowX: 'hidden',
+    alignSelf: 'center',
+    width: '100%',
   },
   backButton: {
     flexDirection: 'row',

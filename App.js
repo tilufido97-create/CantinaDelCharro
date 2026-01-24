@@ -53,8 +53,12 @@ export default function App() {
     });
 
     return () => {
-      Notifications.removeNotificationSubscription(notificationListener);
-      Notifications.removeNotificationSubscription(responseListener);
+      if (notificationListener) {
+        notificationListener.remove();
+      }
+      if (responseListener) {
+        responseListener.remove();
+      }
     };
   }, []);
 
