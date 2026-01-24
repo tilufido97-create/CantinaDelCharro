@@ -1,17 +1,37 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useFocusEffect } from '@react-navigation/native';
 import { COLORS, TYPOGRAPHY, SPACING, BORDER_RADIUS } from '../../constants/theme';
-import { PRODUCTS, CATEGORIES, COMBOS, BANNERS } from '../../constants/mockData';
+import { CATEGORIES } from '../../constants/mockData';
 import { addToCart, getCartCount } from '../../utils/cartManager';
 import Button from '../../components/common/Button';
+import firebaseProductService from '../../services/firebaseProductService';
 
 export default function HomeScreen({ navigation }) {
   const [cartCount, setCartCount] = useState(0);
+  const [featuredProducts, setFeaturedProducts] = useState([]);
 
   useEffect(() => {
     loadCartCount();
+    
+    const unsubscribe = firebaseProductService.subscribeToProducts((products) => {
+      const featured = products.slice(0, 6);
+      setFeaturedProducts(featured);
+    });
+
+    return () => unsubscribe();
   }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadCartCount();
+    }, [])
+  );
+
+  const loadFeaturedProducts = async () => {
+    // Ya no es necesario, Firebase maneja todo
+  };
 
   const loadCartCount = async () => {
     const count = await getCartCount();
@@ -23,8 +43,6 @@ export default function HomeScreen({ navigation }) {
     await loadCartCount();
     Alert.alert('¡Agregado!', `${product.name} agregado al carrito`);
   };
-
-  const featuredProducts = PRODUCTS.filter(p => p.featured);
 
   return (
     <SafeAreaView style={styles.container}>

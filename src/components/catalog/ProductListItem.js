@@ -4,63 +4,39 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 
 export default function ProductListItem({ product, onPress, onAddToCart, cartQuantity = 0 }) {
-  const hasDiscount = (product.descuento || product.discount || 0) > 0;
-  const finalPrice = hasDiscount 
-    ? product.precio * (1 - (product.descuento || product.discount) / 100)
-    : product.precio;
+  // Normalizar datos del producto
+  const price = product.precio || product.price || 0;
+  const discount = product.descuento || product.discount || 0;
+  const hasDiscount = discount > 0;
+  const finalPrice = hasDiscount ? price * (1 - discount / 100) : price;
+  const categoryName = product.categoria || product.category || '';
 
   return (
     <TouchableOpacity style={styles.container} onPress={onPress} activeOpacity={0.7}>
       <View style={styles.content}>
         {/* Info Left */}
         <View style={styles.infoSection}>
-          <Text style={styles.name} numberOfLines={1}>
+          <Text style={styles.name} numberOfLines={2}>
             {product.nombre || product.name}
           </Text>
           
-          <View style={styles.priceRow}>
-            <Text style={styles.price}>Bs {finalPrice.toFixed(2)}</Text>
-            {hasDiscount && (
-              <Text style={styles.originalPrice}>
-                Bs {product.precio.toFixed(2)}
-              </Text>
-            )}
+          <View style={styles.categoryBadge}>
+            <Text style={styles.categoryText}>{categoryName}</Text>
           </View>
           
-          <Text style={styles.description} numberOfLines={1}>
-            {product.descripcion || product.description || product.categoria}
-          </Text>
+          <Text style={styles.price}>Bs. {finalPrice.toFixed(2)}</Text>
 
-          {/* Add Button or Counter */}
-          <View style={styles.actionRow}>
-            {cartQuantity === 0 ? (
-              <TouchableOpacity
-                style={styles.addButton}
-                onPress={(e) => {
-                  e.stopPropagation();
-                  onAddToCart(product);
-                }}
-              >
-                <Text style={styles.addButtonText}>ADD</Text>
-              </TouchableOpacity>
-            ) : (
-              <View style={styles.counter}>
-                <TouchableOpacity style={styles.counterButton}>
-                  <Ionicons name="remove" size={16} color="#FFB800" />
-                </TouchableOpacity>
-                <Text style={styles.counterText}>{cartQuantity}</Text>
-                <TouchableOpacity 
-                  style={styles.counterButton}
-                  onPress={(e) => {
-                    e.stopPropagation();
-                    onAddToCart(product);
-                  }}
-                >
-                  <Ionicons name="add" size={16} color="#FFB800" />
-                </TouchableOpacity>
-              </View>
-            )}
-          </View>
+          {/* Add Button */}
+          <TouchableOpacity
+            style={styles.addButton}
+            onPress={(e) => {
+              e.stopPropagation();
+              onAddToCart(product);
+            }}
+          >
+            <Ionicons name="add" size={20} color="#0A0A0A" />
+            <Text style={styles.addButtonText}>AGREGAR</Text>
+          </TouchableOpacity>
         </View>
 
         {/* Image Right */}
@@ -96,92 +72,73 @@ export default function ProductListItem({ product, onPress, onAddToCart, cartQua
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: '#000000',
+    backgroundColor: '#1C1C1E',
+    marginHorizontal: 16,
+    marginBottom: 12,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 184, 0, 0.1)',
   },
   content: {
     flexDirection: 'row',
-    paddingVertical: 16,
-    paddingHorizontal: 20,
+    padding: 16,
   },
   infoSection: {
     flex: 1,
     justifyContent: 'space-between',
-    paddingRight: 16,
+    paddingRight: 12,
   },
   name: {
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: 18,
+    fontWeight: '700',
     color: '#FFFFFF',
+    marginBottom: 6,
+  },
+  categoryBadge: {
+    backgroundColor: 'rgba(255, 184, 0, 0.15)',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 6,
+    alignSelf: 'flex-start',
     marginBottom: 8,
   },
-  priceRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 4,
+  categoryText: {
+    fontSize: 12,
+    color: '#FFB800',
+    fontWeight: '500',
   },
   price: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#FFB800',
-  },
-  originalPrice: {
-    fontSize: 14,
-    color: '#8E8E93',
-    textDecorationLine: 'line-through',
-  },
-  description: {
-    fontSize: 13,
-    color: '#8E8E93',
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#FFFFFF',
     marginBottom: 12,
   },
-  actionRow: {
+  addButton: {
     flexDirection: 'row',
     alignItems: 'center',
-  },
-  addButton: {
-    backgroundColor: '#1C1C1E',
-    paddingHorizontal: 24,
-    paddingVertical: 8,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#FFB800',
+    justifyContent: 'center',
+    backgroundColor: '#FFB800',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 10,
+    gap: 6,
   },
   addButtonText: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#FFB800',
-  },
-  counter: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#1C1C1E',
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#FFB800',
-    paddingHorizontal: 4,
-  },
-  counterButton: {
-    padding: 8,
-  },
-  counterText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#FFFFFF',
-    minWidth: 32,
-    textAlign: 'center',
+    color: '#0A0A0A',
   },
   imageSection: {
     position: 'relative',
   },
   image: {
     width: 100,
-    height: 100,
+    height: 150,
     borderRadius: 12,
   },
   imagePlaceholder: {
     width: 100,
-    height: 100,
+    height: 150,
     borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
@@ -204,8 +161,6 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
   divider: {
-    height: 1,
-    backgroundColor: '#1C1C1E',
-    marginHorizontal: 20,
+    height: 0,
   },
 });

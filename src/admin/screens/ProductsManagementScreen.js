@@ -4,13 +4,13 @@ import {
   TextInput, Image, Alert, ActivityIndicator
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { COLORS } from '../../constants/theme';
 import AdminLayout from '../components/AdminLayout';
 import ProductModal from '../components/ProductModal';
 import TooltipButton from '../components/TooltipButton';
 import TooltipIcon from '../components/TooltipIcon';
 import { getCurrentAdmin } from '../utils/adminAuth';
+import firebaseProductService from '../../services/firebaseProductService';
 
 const CATEGORIES = [
   { id: 'all', name: 'Todas las categorías' },
@@ -40,26 +40,16 @@ const ProductsManagementScreen = () => {
   const loadProducts = async () => {
     try {
       setLoading(true);
-      const productsData = await AsyncStorage.getItem('all_products');
-      let prods = productsData ? JSON.parse(productsData) : [];
+      const unsubscribe = firebaseProductService.subscribeToProducts((prods) => {
+        setProducts(prods);
+        setFilteredProducts(prods);
+        setLoading(false);
+      });
       
-      if (prods.length === 0) {
-        const productsOld = await AsyncStorage.getItem('products');
-        if (productsOld) {
-          prods = JSON.parse(productsOld);
-        } else {
-          const { MOCK_PRODUCTS } = require('../../constants/mockData');
-          prods = MOCK_PRODUCTS || [];
-        }
-        await AsyncStorage.setItem('all_products', JSON.stringify(prods));
-      }
-      
-      setProducts(prods);
-      setFilteredProducts(prods);
+      return unsubscribe;
     } catch (error) {
       console.error('Error loading products:', error);
       Alert.alert('Error', 'No se pudieron cargar los productos');
-    } finally {
       setLoading(false);
     }
   };
@@ -70,7 +60,15 @@ const ProductsManagementScreen = () => {
       setUser(admin);
     };
     loadUser();
-    loadProducts();
+    
+    let unsubscribe;
+    loadProducts().then(unsub => {
+      unsubscribe = unsub;
+    });
+    
+    return () => {
+      if (unsubscribe) unsubscribe();
+    };
   }, []);
 
   useEffect(() => {
@@ -117,37 +115,34 @@ const ProductsManagementScreen = () => {
 
   const handleSave = async (productData) => {
     try {
-      let updatedProducts;
-      
       if (editingProduct) {
-        updatedProducts = products.map(p =>
-          p.id === editingProduct.id ? { ...productData, id: editingProduct.id, updatedAt: new Date().toISOString() } : p
-        );
-        Alert.alert('Éxito', 'Producto actualizado correctamente');
+        const result = await firebaseProductService.updateProduct(editingProduct.id, productData);
+        if (result.success) {
+          Alert.alert('Éxito', 'Producto actualizado. Los cambios se sincronizarán instantáneamente.');
+        } else {
+          Alert.alert('Error', result.error);
+        }
       } else {
-        const newProduct = {
-          ...productData,
-          id: `PROD-${Date.now()}`,
-          createdAt: new Date().toISOString()
-        };
-        updatedProducts = [...products, newProduct];
-        Alert.alert('Éxito', 'Producto creado correctamente');
+        const result = await firebaseProductService.addProduct(productData);
+        if (result.success) {
+          Alert.alert('Éxito', 'Producto creado. Se sincronizará instantáneamente con la app móvil.');
+        } else {
+          Alert.alert('Error', result.error);
+        }
       }
       
-      await AsyncStorage.setItem('all_products', JSON.stringify(updatedProducts));
-      setProducts(updatedProducts);
       setShowModal(false);
       
     } catch (error) {
       console.error('Error saving product:', error);
-      throw error;
+      Alert.alert('Error', 'No se pudo guardar el producto');
     }
   };
 
   const handleDelete = (product) => {
     Alert.alert(
       '⚠️ Eliminar Producto',
-      `¿Estás seguro de eliminar "${product.name}"? Esta acción no se puede deshacer.`,
+      `¿Estás seguro de eliminar "${product.name}"? Esta acción se sincronizará instantáneamente con la app móvil.`,
       [
         { text: 'Cancelar', style: 'cancel' },
         {
@@ -156,11 +151,14 @@ const ProductsManagementScreen = () => {
           onPress: async () => {
             try {
               console.log('Eliminando producto:', product.id);
-              const updatedProducts = products.filter(p => p.id !== product.id);
-              await AsyncStorage.setItem('all_products', JSON.stringify(updatedProducts));
-              setProducts(updatedProducts);
-              console.log('✅ Producto eliminado correctamente');
-              Alert.alert('Éxito', 'Producto eliminado correctamente');
+              const result = await firebaseProductService.deleteProduct(product.id);
+              
+              if (result.success) {
+                console.log('✅ Producto eliminado correctamente');
+                Alert.alert('Éxito', 'Producto eliminado. Los cambios se sincronizaron instantáneamente.');
+              } else {
+                Alert.alert('Error', result.error);
+              }
             } catch (error) {
               console.error('❌ Error eliminando producto:', error);
               Alert.alert('Error', 'No se pudo eliminar el producto');

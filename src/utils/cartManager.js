@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import firebaseProductService from '../services/firebaseProductService';
 
 const CART_KEY = '@cantina_cart';
 
@@ -9,6 +10,33 @@ export const getCart = async () => {
   } catch (error) {
     console.error('Error getting cart:', error);
     return [];
+  }
+};
+
+export const validateCart = async () => {
+  try {
+    const cart = await getCart();
+    const currentProducts = await firebaseProductService.getProducts();
+    
+    const validCart = cart.filter(item => {
+      const productId = item.product?.id || item.id;
+      return currentProducts.find(p => p.id === productId);
+    });
+    
+    if (validCart.length !== cart.length) {
+      await AsyncStorage.setItem(CART_KEY, JSON.stringify(validCart));
+      const removedCount = cart.length - validCart.length;
+      console.log(`🗑️ ${removedCount} producto(s) eliminado(s) del carrito (ya no disponibles)`);
+      return {
+        removedItems: removedCount,
+        validCart
+      };
+    }
+    
+    return { removedItems: 0, validCart: cart };
+  } catch (error) {
+    console.error('Error validating cart:', error);
+    return { removedItems: 0, validCart: [] };
   }
 };
 

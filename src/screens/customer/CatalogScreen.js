@@ -6,12 +6,12 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useFocusEffect } from '@react-navigation/native';
 import StoreHeader from '../../components/catalog/StoreHeader';
 import CategoryChip from '../../components/catalog/CategoryChip';
 import ProductListItem from '../../components/catalog/ProductListItem';
 import FloatingCartBar from '../../components/catalog/FloatingCartBar';
-import { subscribeToActiveProducts } from '../../services/firebaseProductService';
-import { isFirebaseConfigured } from '../../config/firebaseConfig';
+import firebaseProductService from '../../services/firebaseProductService';
 
 const CATEGORIES = [
   { id: 'all', icon: 'apps', label: 'Todo' },
@@ -33,102 +33,39 @@ export default function CatalogScreen({ navigation }) {
   const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
-    let unsubscribeProducts = null;
+    console.log('🔥 Iniciando listener de Firebase...');
     
-    const init = async () => {
-      unsubscribeProducts = await loadProducts();
-      await loadCart();
-    };
-    
-    init();
+    const unsubscribe = firebaseProductService.subscribeToProducts((updatedProducts) => {
+      console.log('📦 Productos recibidos:', updatedProducts.length);
+      setProducts(updatedProducts);
+      setFilteredProducts(updatedProducts);
+      setIsLoading(false);
+    });
+
+    loadCart();
     
     return () => {
-      if (unsubscribeProducts) {
-        console.log('🔌 Desconectando listener de Firebase');
-        unsubscribeProducts();
-      }
+      console.log('🔌 Desconectando listener de Firebase');
+      unsubscribe();
     };
   }, []);
 
+  useFocusEffect(
+    useCallback(() => {
+      loadCart();
+    }, [])
+  );
+
   const loadInitialData = async () => {
-    try {
-      setIsLoading(true);
-      await loadProducts();
-      await loadCart();
-    } catch (error) {
-      console.error('Error loading data:', error);
-    } finally {
-      setIsLoading(false);
-    }
+    // Ya no es necesario, Firebase maneja todo
   };
 
   const loadProducts = async () => {
-    try {
-      // Verificar si Firebase está configurado
-      if (isFirebaseConfigured()) {
-        console.log('🔥 Cargando productos desde Firebase...');
-        
-        // Listener en tiempo real de Firebase
-        const unsubscribe = subscribeToActiveProducts(
-          (firebaseProducts) => {
-            console.log(`✅ ${firebaseProducts.length} productos recibidos de Firebase`);
-            setProducts(firebaseProducts);
-            setFilteredProducts(firebaseProducts);
-            setIsLoading(false);
-            
-            // Guardar en AsyncStorage como backup
-            AsyncStorage.setItem('all_products', JSON.stringify(firebaseProducts));
-          },
-          (error) => {
-            console.error('❌ Error en listener de Firebase:', error);
-            // Fallback a AsyncStorage
-            loadProductsFromStorage();
-          }
-        );
-        
-        // Guardar unsubscribe para cleanup
-        return unsubscribe;
-      } else {
-        console.log('⚠️ Firebase no configurado, usando AsyncStorage');
-        loadProductsFromStorage();
-      }
-    } catch (error) {
-      console.error('Error loading products:', error);
-      loadProductsFromStorage();
-    }
+    // Ya no es necesario, Firebase maneja todo
   };
   
   const loadProductsFromStorage = async () => {
-    try {
-      const productsData = await AsyncStorage.getItem('all_products');
-      if (productsData) {
-        const prods = JSON.parse(productsData);
-        setProducts(prods);
-        setFilteredProducts(prods);
-      } else {
-        // Cargar productos mock si no hay datos
-        const { MOCK_PRODUCTS } = require('../../constants/mockData');
-        const mockProds = MOCK_PRODUCTS.map(p => ({
-          id: p.id,
-          nombre: p.name,
-          descripcion: p.description,
-          precio: p.price,
-          descuento: p.discount,
-          stock: p.stock,
-          categoria: p.category.toLowerCase(),
-          imagenURL: p.images?.[0] || null,
-          activo: true,
-          rating: 4.5
-        }));
-        setProducts(mockProds);
-        setFilteredProducts(mockProds);
-        await AsyncStorage.setItem('all_products', JSON.stringify(mockProds));
-      }
-    } catch (error) {
-      console.error('Error loading from storage:', error);
-    } finally {
-      setIsLoading(false);
-    }
+    // Ya no es necesario, Firebase maneja todo
   };
 
   const loadCart = async () => {
@@ -210,7 +147,7 @@ export default function CatalogScreen({ navigation }) {
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await loadInitialData();
+    await loadCart();
     setRefreshing(false);
   };
 
