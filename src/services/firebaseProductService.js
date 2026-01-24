@@ -20,8 +20,11 @@ class ProductService {
         ...data[key]
       }));
 
+      // Filtrar solo productos activos (no eliminados)
+      // Mostrar productos aunque no estén disponibles o sin stock
       const activeProducts = productsArray.filter(p => p.active !== false);
-      console.log('📦 Firebase: Productos actualizados:', activeProducts.length);
+      
+      console.log('📦 Firebase: Productos activos:', activeProducts.length, 'de', productsArray.length);
       callback(activeProducts);
     }, (error) => {
       console.error('❌ Error al escuchar productos:', error);
@@ -58,10 +61,14 @@ class ProductService {
         id: productId,
         name: productData.name,
         category: productData.category,
+        cost: parseFloat(productData.cost) || 0,
         price: parseFloat(productData.price),
         stock: parseInt(productData.stock) || 0,
-        image: productData.image || 'https://via.placeholder.com/200',
+        minStock: parseInt(productData.minStock) || 0,
+        image: productData.images?.[0] || productData.image || 'https://via.placeholder.com/200',
         description: productData.description || '',
+        discount: parseFloat(productData.discount) || 0,
+        disponible: productData.disponible !== false,
         active: true,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
@@ -82,8 +89,12 @@ class ProductService {
       
       const updatedData = {
         ...updates,
+        cost: updates.cost ? parseFloat(updates.cost) : undefined,
         price: parseFloat(updates.price),
         stock: parseInt(updates.stock),
+        minStock: updates.minStock ? parseInt(updates.minStock) : undefined,
+        discount: updates.discount ? parseFloat(updates.discount) : 0,
+        disponible: updates.disponible !== undefined ? updates.disponible : true,
         updatedAt: new Date().toISOString()
       };
 

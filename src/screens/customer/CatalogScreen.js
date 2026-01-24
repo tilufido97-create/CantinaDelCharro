@@ -12,6 +12,8 @@ import CategoryChip from '../../components/catalog/CategoryChip';
 import ProductListItem from '../../components/catalog/ProductListItem';
 import FloatingCartBar from '../../components/catalog/FloatingCartBar';
 import firebaseProductService from '../../services/firebaseProductService';
+import CartModal from '../../components/cart/CartModal';
+import { addToCart as addToCartUtil, getCart, getCartTotal } from '../../utils/cartManager';
 
 const CATEGORIES = [
   { id: 'all', icon: 'apps', label: 'Todo' },
@@ -31,6 +33,8 @@ export default function CatalogScreen({ navigation }) {
   const [cartItems, setCartItems] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [cartModalVisible, setCartModalVisible] = useState(false);
+  const [cartTotal, setCartTotal] = useState(0);
 
   useEffect(() => {
     console.log('🔥 Iniciando listener de Firebase...');
@@ -42,7 +46,7 @@ export default function CatalogScreen({ navigation }) {
       setIsLoading(false);
     });
 
-    loadCart();
+    loadCartData();
     
     return () => {
       console.log('🔌 Desconectando listener de Firebase');
@@ -52,9 +56,16 @@ export default function CatalogScreen({ navigation }) {
 
   useFocusEffect(
     useCallback(() => {
-      loadCart();
+      loadCartData();
     }, [])
   );
+
+  const loadCartData = async () => {
+    const items = await getCart();
+    const total = await getCartTotal();
+    setCartItems(items);
+    setCartTotal(total);
+  };
 
   const loadInitialData = async () => {
     // Ya no es necesario, Firebase maneja todo
@@ -115,28 +126,26 @@ export default function CatalogScreen({ navigation }) {
 
   const handleAddToCart = async (product) => {
     try {
-      if ((product.stock || 0) === 0) {
+      const stock = product.stock || 0;
+      
+      if (stock === 0) {
         Alert.alert('Producto agotado', 'Este producto no está disponible');
         return;
       }
       
-      const cartData = await AsyncStorage.getItem('cart_items');
-      let cart = cartData ? JSON.parse(cartData) : [];
-      
-      const existingIndex = cart.findIndex(item => item.id === product.id);
-      
-      if (existingIndex >= 0) {
-        cart[existingIndex].quantity = (cart[existingIndex].quantity || 1) + 1;
-      } else {
-        cart.push({ ...product, quantity: 1 });
+      if (product.disponible === false) {
+        Alert.alert('No disponible', 'Este producto no está disponible por el momento');
+        return;
       }
       
-      await AsyncStorage.setItem('cart_items', JSON.stringify(cart));
-      setCartItems(cart);
+      await addToCartUtil(product, 1);
+      await loadCartData();
+      Alert.alert('✅ Agregado', `${product.name} agregado al carrito`);
       
     } catch (error) {
       console.error('Error adding to cart:', error);
-      Alert.alert('Error', 'No se pudo agregar al carrito');
+      // Mostrar el mensaje de error específico
+      Alert.alert('Stock insuficiente', error.message || 'No se pudo agregar al carrito');
     }
   };
 
@@ -147,9 +156,11 @@ export default function CatalogScreen({ navigation }) {
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await loadCart();
+    await loadCartData();
     setRefreshing(false);
   };
+
+  const cartItemCount = cartItems.reduce((sum, item) => sum + item.quantity, 0);
 
   if (isLoading) {
     return (
@@ -214,7 +225,6 @@ export default function CatalogScreen({ navigation }) {
         renderItem={({ item }) => (
           <ProductListItem
             product={item}
-            onPress={() => navigation.navigate('ProductDetail', { product: item })}
             onAddToCart={handleAddToCart}
             cartQuantity={getCartQuantity(item.id)}
           />
@@ -242,6 +252,44 @@ export default function CatalogScreen({ navigation }) {
       <FloatingCartBar
         cartItems={cartItems}
         onPress={() => navigation.navigate('CartTab')}
+      />
+
+      {/* Botón Flotante del Carrito */}
+      {cartItems.length > 0 && (
+        <TouchableOpacity
+          style={styles.floatingCartButton}
+          onPress={() => setCartModalVisible(true)}
+          activeOpacity={0.9}
+        >
+          <View style={styles.cartButtonContent}>
+            <View style={styles.cartButtonLeft}>
+              <View style={styles.itemCountBadge}>
+                <Text style={styles.itemCountText}>{cartItemCount}</Text>
+              </View>
+              <Text style={styles.cartButtonText}>
+                {cartItemCount} {cartItemCount === 1 ? 'Item' : 'Items'}
+              </Text>
+            </View>
+
+            <View style={styles.cartButtonDivider} />
+
+            <View style={styles.cartButtonRight}>
+              <Text style={styles.cartTotalText}>
+                Bs. {cartTotal.toFixed(2)}
+              </Text>
+              <Ionicons name="chevron-up" size={20} color="#FFFFFF" />
+            </View>
+          </View>
+        </TouchableOpacity>
+      )}
+
+      {/* Modal del Carrito */}
+      <CartModal
+        visible={cartModalVisible}
+        onClose={() => setCartModalVisible(false)}
+        cartItems={cartItems}
+        onUpdateCart={loadCartData}
+        navigation={navigation}
       />
     </SafeAreaView>
   );
@@ -320,5 +368,65 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#FFB800',
     fontWeight: '600',
+  },
+  floatingCartButton: {
+    position: 'absolute',
+    bottom: 20,
+    left: 16,
+    right: 16,
+    backgroundColor: '#0A0A0A',
+    borderRadius: 16,
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    shadowColor: '#FFB800',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 184, 0, 0.3)',
+  },
+  cartButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  cartButtonLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  itemCountBadge: {
+    backgroundColor: '#FFB800',
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  itemCountText: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#0A0A0A',
+  },
+  cartButtonText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  cartButtonDivider: {
+    width: 1,
+    height: 30,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+  },
+  cartButtonRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  cartTotalText: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#FFB800',
   },
 });

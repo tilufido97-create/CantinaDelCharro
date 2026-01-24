@@ -1,575 +1,231 @@
-import { 
-  collection, 
-  addDoc, 
-  updateDoc, 
-  deleteDoc, 
-  doc, 
-  getDocs,
-  getDoc,
-  onSnapshot,
-  query,
-  where,
-  orderBy,
-  limit,
-  serverTimestamp,
-  increment
-} from 'firebase/firestore';
-import { db, COLLECTIONS, handleFirebaseError } from '../config/firebaseConfig';
+import { database } from '../config/firebase';
+import { ref, onValue, set, push, update, get, increment } from 'firebase/database';
+import firebaseFinanceService from './firebaseFinanceService';
 
-/**
- * Servicio completo de pedidos con Firebase
- */
-
-// ==================== ORDER STATES ====================
-
-export const ORDER_STATES = {
-  PENDING: 'pending',
-  CONFIRMED: 'confirmed',
-  PREPARING: 'preparing',
-  READY: 'ready',
-  ASSIGNED: 'assigned',
-  ON_WAY: 'on_way',
-  DELIVERED: 'delivered',
-  CANCELLED: 'cancelled'
-};
-
-export const ORDER_STATE_LABELS = {
-  [ORDER_STATES.PENDING]: 'Pendiente',
-  [ORDER_STATES.CONFIRMED]: 'Confirmado',
-  [ORDER_STATES.PREPARING]: 'Preparando',
-  [ORDER_STATES.READY]: 'Listo',
-  [ORDER_STATES.ASSIGNED]: 'Asignado',
-  [ORDER_STATES.ON_WAY]: 'En camino',
-  [ORDER_STATES.DELIVERED]: 'Entregado',
-  [ORDER_STATES.CANCELLED]: 'Cancelado'
-};
-
-// ==================== CRUD OPERATIONS ====================
-
-/**
- * Crear nuevo pedido
- */
-export const createOrder = async (orderData) => {
-  try {
-    // Generar número de pedido único
-    const orderNumber = `ORD-${Date.now().toString().slice(-8)}`;
-    
-    const newOrder = {
-      ...orderData,
-      orderNumber,
-      status: ORDER_STATES.PENDING,
-      creadoEn: serverTimestamp(),
-      actualizadoEn: serverTimestamp()
-    };
-    
-    const docRef = await addDoc(collection(db, COLLECTIONS.ORDERS), newOrder);
-    
-    console.log('✅ Pedido creado:', docRef.id, orderNumber);
-    
-    return {
-      id: docRef.id,
-      orderNumber
-    };
-    
-  } catch (error) {
-    console.error('Error creating order:', error);
-    throw new Error(handleFirebaseError(error));
+class OrderService {
+  constructor() {
+    this.ordersRef = ref(database, 'orders');
+    this.productsRef = ref(database, 'products');
   }
-};
 
-/**
- * Obtener todos los pedidos
- */
-export const getAllOrders = async () => {
-  try {
-    const q = query(
-      collection(db, COLLECTIONS.ORDERS),
-      orderBy('creadoEn', 'desc')
-    );
-    
-    const querySnapshot = await getDocs(q);
-    const orders = [];
-    
-    querySnapshot.forEach((doc) => {
-      orders.push({
-        id: doc.id,
-        ...doc.data()
-      });
-    });
-    
-    console.log(`✅ ${orders.length} pedidos cargados`);
-    return orders;
-    
-  } catch (error) {
-    console.error('Error getting orders:', error);
-    throw new Error(handleFirebaseError(error));
+  generateOrderId() {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
+    return `ORDER_${year}${month}${day}_${random}`;
   }
-};
 
-/**
- * Obtener pedido por ID
- */
-export const getOrderById = async (orderId) => {
-  try {
-    const docRef = doc(db, COLLECTIONS.ORDERS, orderId);
-    const docSnap = await getDoc(docRef);
-    
-    if (docSnap.exists()) {
-      return {
-        id: docSnap.id,
-        ...docSnap.data()
+  async createOrder(orderData) {
+    try {
+      // Validar stock antes de crear pedido
+      for (const item of orderData.items) {
+        const productRef = ref(database, `products/${item.productId}`);
+        const snapshot = await get(productRef);
+        const product = snapshot.val();
+        
+        if (!product) {
+          return {
+            success: false,
+            error: `Producto "${item.name}" no encontrado`
+          };
+        }
+        
+        if (product.disponible === false) {
+          return {
+            success: false,
+            error: `Producto "${item.name}" no está disponible`
+          };
+        }
+        
+        if (product.stock < item.quantity) {
+          return {
+            success: false,
+            error: `Stock insuficiente para "${item.name}". Disponible: ${product.stock}`
+          };
+        }
+      }
+
+      // Reducir stock de cada producto
+      for (const item of orderData.items) {
+        const productRef = ref(database, `products/${item.productId}`);
+        const snapshot = await get(productRef);
+        const product = snapshot.val();
+        const newStock = product.stock - item.quantity;
+        
+        await update(productRef, {
+          stock: newStock,
+          outOfStock: newStock === 0,
+          disponible: newStock > 0,
+          updatedAt: new Date().toISOString()
+        });
+      }
+
+      // Crear pedido
+      const orderId = this.generateOrderId();
+      const orderRef = ref(database, `orders/${orderId}`);
+      
+      const order = {
+        orderId,
+        orderNumber: orderId.replace('ORDER_', ''),
+        ...orderData,
+        status: 'pendiente',
+        createdAt: new Date().toISOString(),
+        statusHistory: [
+          {
+            status: 'pendiente',
+            timestamp: new Date().toISOString(),
+            label: 'Pedido Realizado'
+          }
+        ]
       };
-    } else {
-      throw new Error('Pedido no encontrado');
+
+      await set(orderRef, order);
+      
+      console.log('✅ Pedido creado:', orderId);
+      return { success: true, orderId, order };
+    } catch (error) {
+      console.error('❌ Error al crear pedido:', error);
+      return { success: false, error: error.message };
     }
-    
-  } catch (error) {
-    console.error('Error getting order:', error);
-    throw new Error(handleFirebaseError(error));
   }
-};
 
-/**
- * Obtener pedidos de un usuario
- */
-export const getUserOrders = async (userId) => {
-  try {
-    const q = query(
-      collection(db, COLLECTIONS.ORDERS),
-      where('userId', '==', userId),
-      orderBy('creadoEn', 'desc')
-    );
-    
-    const querySnapshot = await getDocs(q);
-    const orders = [];
-    
-    querySnapshot.forEach((doc) => {
-      orders.push({
-        id: doc.id,
-        ...doc.data()
-      });
+  subscribeToOrders(callback) {
+    const unsubscribe = onValue(this.ordersRef, (snapshot) => {
+      const data = snapshot.val();
+      
+      if (!data) {
+        callback([]);
+        return;
+      }
+
+      const ordersArray = Object.keys(data).map(key => ({
+        id: key,
+        ...data[key]
+      }));
+
+      // Ordenar por fecha (más recientes primero)
+      ordersArray.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+      
+      console.log('📦 Firebase: Pedidos actualizados:', ordersArray.length);
+      callback(ordersArray);
+    }, (error) => {
+      console.error('❌ Error al escuchar pedidos:', error);
+      callback([]);
     });
-    
-    return orders;
-    
-  } catch (error) {
-    console.error('Error getting user orders:', error);
-    throw new Error(handleFirebaseError(error));
-  }
-};
 
-/**
- * Actualizar estado del pedido
- */
-export const updateOrderStatus = async (orderId, newStatus, additionalData = {}) => {
-  try {
-    const orderRef = doc(db, COLLECTIONS.ORDERS, orderId);
-    
-    const updateData = {
-      status: newStatus,
-      actualizadoEn: serverTimestamp(),
-      ...additionalData
-    };
-    
-    // Agregar timestamp específico según el estado
-    if (newStatus === ORDER_STATES.CONFIRMED) {
-      updateData.confirmedAt = serverTimestamp();
-    } else if (newStatus === ORDER_STATES.ASSIGNED) {
-      updateData.assignedAt = serverTimestamp();
-    } else if (newStatus === ORDER_STATES.ON_WAY) {
-      updateData.onWayAt = serverTimestamp();
-    } else if (newStatus === ORDER_STATES.DELIVERED) {
-      updateData.deliveredAt = serverTimestamp();
+    return unsubscribe;
+  }
+
+  subscribeToOrder(orderId, callback) {
+    const orderRef = ref(database, `orders/${orderId}`);
+    const unsubscribe = onValue(orderRef, (snapshot) => {
+      const order = snapshot.val();
+      callback(order);
+    });
+    return unsubscribe;
+  }
+
+  async updateOrderStatus(orderId, newStatus, additionalData = {}) {
+    try {
+      const orderRef = ref(database, `orders/${orderId}`);
+      const snapshot = await get(orderRef);
+      const order = snapshot.val();
+
+      const statusLabels = {
+        pendiente: 'Pedido Realizado',
+        preparando: 'Preparando Pedido',
+        listo_pickup: 'Esperando Recojo',
+        listo_delivery: 'Esperando Delivery',
+        en_camino: 'En Camino',
+        entregado: 'Entregado',
+        cancelado: 'Cancelado'
+      };
+
+      const statusHistory = order.statusHistory || [];
+      statusHistory.push({
+        status: newStatus,
+        label: statusLabels[newStatus] || newStatus,
+        timestamp: new Date().toISOString(),
+        ...additionalData
+      });
+
+      await update(orderRef, {
+        status: newStatus,
+        statusHistory,
+        updatedAt: new Date().toISOString(),
+        ...additionalData
+      });
+
+      // Si se marca como entregado, crear transacción de venta
+      if (newStatus === 'entregado') {
+        await firebaseFinanceService.createSaleTransaction({
+          ...order,
+          orderId,
+          deliveredAt: additionalData.deliveredAt || new Date().toISOString()
+        });
+        console.log('💰 Transacción de venta creada automáticamente');
+      }
+
+      console.log('✅ Estado actualizado:', orderId, newStatus);
+      return { success: true };
+    } catch (error) {
+      console.error('❌ Error al actualizar estado:', error);
+      return { success: false, error: error.message };
     }
-    
-    await updateDoc(orderRef, updateData);
-    
-    console.log('✅ Estado actualizado:', orderId, newStatus);
-    return true;
-    
-  } catch (error) {
-    console.error('Error updating order status:', error);
-    throw new Error(handleFirebaseError(error));
   }
-};
 
-/**
- * Asignar delivery a un pedido
- */
-export const assignDeliveryToOrder = async (orderId, deliveryData) => {
-  try {
-    const orderRef = doc(db, COLLECTIONS.ORDERS, orderId);
-    
-    await updateDoc(orderRef, {
-      assignedDeliveryId: deliveryData.id,
-      assignedDeliveryName: deliveryData.nombre,
-      assignedDeliveryCode: deliveryData.code,
-      assignedDeliveryPhone: deliveryData.telefono,
-      assignedDeliveryVehicle: deliveryData.vehicleType,
-      status: ORDER_STATES.ASSIGNED,
-      assignedAt: serverTimestamp(),
-      actualizadoEn: serverTimestamp()
-    });
-    
-    // Actualizar estado del delivery
-    const deliveryRef = doc(db, COLLECTIONS.DELIVERIES, deliveryData.id);
-    await updateDoc(deliveryRef, {
-      disponible: false,
-      pedidoActualId: orderId,
-      actualizadoEn: serverTimestamp()
-    });
-    
-    console.log('✅ Delivery asignado:', deliveryData.nombre, 'al pedido', orderId);
-    return true;
-    
-  } catch (error) {
-    console.error('Error assigning delivery:', error);
-    throw new Error(handleFirebaseError(error));
-  }
-};
+  async cancelOrder(orderId) {
+    try {
+      const orderRef = ref(database, `orders/${orderId}`);
+      const snapshot = await get(orderRef);
+      const order = snapshot.val();
 
-/**
- * Liberar delivery de un pedido
- */
-export const releaseDeliveryFromOrder = async (orderId, deliveryId) => {
-  try {
-    const orderRef = doc(db, COLLECTIONS.ORDERS, orderId);
-    
-    await updateDoc(orderRef, {
-      assignedDeliveryId: null,
-      assignedDeliveryName: null,
-      assignedDeliveryCode: null,
-      assignedDeliveryPhone: null,
-      assignedDeliveryVehicle: null,
-      actualizadoEn: serverTimestamp()
-    });
-    
-    // Liberar delivery
-    const deliveryRef = doc(db, COLLECTIONS.DELIVERIES, deliveryId);
-    await updateDoc(deliveryRef, {
-      disponible: true,
-      pedidoActualId: null,
-      actualizadoEn: serverTimestamp()
-    });
-    
-    console.log('✅ Delivery liberado del pedido', orderId);
-    return true;
-    
-  } catch (error) {
-    console.error('Error releasing delivery:', error);
-    throw new Error(handleFirebaseError(error));
-  }
-};
+      // Restaurar stock
+      for (const item of order.items) {
+        const productRef = ref(database, `products/${item.productId}`);
+        const productSnapshot = await get(productRef);
+        const product = productSnapshot.val();
+        const newStock = product.stock + item.quantity;
+        
+        await update(productRef, {
+          stock: newStock,
+          outOfStock: false,
+          disponible: true, // Re-habilitar al restaurar stock
+          updatedAt: new Date().toISOString()
+        });
+      }
 
-/**
- * Cancelar pedido
- */
-export const cancelOrder = async (orderId, reason = '') => {
-  try {
-    const orderRef = doc(db, COLLECTIONS.ORDERS, orderId);
-    
-    // Obtener datos del pedido para liberar delivery si está asignado
-    const orderSnap = await getDoc(orderRef);
-    const orderData = orderSnap.data();
-    
-    await updateDoc(orderRef, {
-      status: ORDER_STATES.CANCELLED,
-      cancelledAt: serverTimestamp(),
-      cancellationReason: reason,
-      actualizadoEn: serverTimestamp()
-    });
-    
-    // Si tenía delivery asignado, liberarlo
-    if (orderData.assignedDeliveryId) {
-      await releaseDeliveryFromOrder(orderId, orderData.assignedDeliveryId);
+      // Actualizar pedido
+      await this.updateOrderStatus(orderId, 'cancelado', {
+        cancelledAt: new Date().toISOString()
+      });
+
+      console.log('✅ Pedido cancelado y stock restaurado:', orderId);
+      return { success: true };
+    } catch (error) {
+      console.error('❌ Error al cancelar pedido:', error);
+      return { success: false, error: error.message };
     }
-    
-    console.log('✅ Pedido cancelado:', orderId);
-    return true;
-    
-  } catch (error) {
-    console.error('Error cancelling order:', error);
-    throw new Error(handleFirebaseError(error));
   }
-};
 
-/**
- * Eliminar pedido (solo admin)
- */
-export const deleteOrder = async (orderId) => {
-  try {
-    await deleteDoc(doc(db, COLLECTIONS.ORDERS, orderId));
-    
-    console.log('✅ Pedido eliminado:', orderId);
-    return true;
-    
-  } catch (error) {
-    console.error('Error deleting order:', error);
-    throw new Error(handleFirebaseError(error));
-  }
-};
-
-// ==================== REAL-TIME LISTENERS ====================
-
-/**
- * Listener en tiempo real de todos los pedidos (para admin)
- */
-export const subscribeToOrders = (callback, onError = null) => {
-  try {
-    const q = query(
-      collection(db, COLLECTIONS.ORDERS),
-      orderBy('creadoEn', 'desc')
-    );
-    
-    const unsubscribe = onSnapshot(
-      q,
-      (snapshot) => {
-        const orders = [];
-        snapshot.forEach((doc) => {
-          orders.push({
-            id: doc.id,
-            ...doc.data()
-          });
-        });
-        
-        console.log(`🔄 Pedidos actualizados: ${orders.length}`);
-        callback(orders);
-      },
-      (error) => {
-        console.error('Error in orders listener:', error);
-        if (onError) onError(error);
-      }
-    );
-    
-    return unsubscribe;
-    
-  } catch (error) {
-    console.error('Error subscribing to orders:', error);
-    throw new Error(handleFirebaseError(error));
-  }
-};
-
-/**
- * Listener de pedidos de un usuario específico
- */
-export const subscribeToUserOrders = (userId, callback, onError = null) => {
-  try {
-    const q = query(
-      collection(db, COLLECTIONS.ORDERS),
-      where('userId', '==', userId),
-      orderBy('creadoEn', 'desc')
-    );
-    
-    const unsubscribe = onSnapshot(
-      q,
-      (snapshot) => {
-        const orders = [];
-        snapshot.forEach((doc) => {
-          orders.push({
-            id: doc.id,
-            ...doc.data()
-          });
-        });
-        
-        callback(orders);
-      },
-      (error) => {
-        console.error('Error in user orders listener:', error);
-        if (onError) onError(error);
-      }
-    );
-    
-    return unsubscribe;
-    
-  } catch (error) {
-    console.error('Error subscribing to user orders:', error);
-    throw new Error(handleFirebaseError(error));
-  }
-};
-
-/**
- * Listener de un pedido específico
- */
-export const subscribeToOrder = (orderId, callback, onError = null) => {
-  try {
-    const docRef = doc(db, COLLECTIONS.ORDERS, orderId);
-    
-    const unsubscribe = onSnapshot(
-      docRef,
-      (doc) => {
-        if (doc.exists()) {
-          callback({
-            id: doc.id,
-            ...doc.data()
-          });
-        } else {
-          callback(null);
-        }
-      },
-      (error) => {
-        console.error('Error in order listener:', error);
-        if (onError) onError(error);
-      }
-    );
-    
-    return unsubscribe;
-    
-  } catch (error) {
-    console.error('Error subscribing to order:', error);
-    throw new Error(handleFirebaseError(error));
-  }
-};
-
-/**
- * Listener de pedidos pendientes (para notificaciones)
- */
-export const subscribeToPendingOrders = (callback, onError = null) => {
-  try {
-    const q = query(
-      collection(db, COLLECTIONS.ORDERS),
-      where('status', '==', ORDER_STATES.PENDING),
-      orderBy('creadoEn', 'desc')
-    );
-    
-    const unsubscribe = onSnapshot(
-      q,
-      (snapshot) => {
-        const orders = [];
-        snapshot.forEach((doc) => {
-          orders.push({
-            id: doc.id,
-            ...doc.data()
-          });
-        });
-        
-        if (orders.length > 0) {
-          console.log(`⚠️ ${orders.length} pedidos pendientes`);
-        }
-        
-        callback(orders);
-      },
-      (error) => {
-        console.error('Error in pending orders listener:', error);
-        if (onError) onError(error);
-      }
-    );
-    
-    return unsubscribe;
-    
-  } catch (error) {
-    console.error('Error subscribing to pending orders:', error);
-    throw new Error(handleFirebaseError(error));
-  }
-};
-
-// ==================== QUERY HELPERS ====================
-
-/**
- * Obtener pedidos por estado
- */
-export const getOrdersByStatus = async (status) => {
-  try {
-    const q = query(
-      collection(db, COLLECTIONS.ORDERS),
-      where('status', '==', status),
-      orderBy('creadoEn', 'desc')
-    );
-    
-    const querySnapshot = await getDocs(q);
-    const orders = [];
-    
-    querySnapshot.forEach((doc) => {
-      orders.push({
-        id: doc.id,
-        ...doc.data()
+  async assignDelivery(orderId, deliveryId, deliveryName) {
+    try {
+      await update(ref(database, `orders/${orderId}`), {
+        deliveryId,
+        deliveryName,
+        assignedAt: new Date().toISOString()
       });
-    });
-    
-    return orders;
-    
-  } catch (error) {
-    console.error('Error getting orders by status:', error);
-    throw new Error(handleFirebaseError(error));
-  }
-};
 
-/**
- * Obtener pedidos de hoy
- */
-export const getTodayOrders = async () => {
-  try {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    
-    const q = query(
-      collection(db, COLLECTIONS.ORDERS),
-      where('creadoEn', '>=', today),
-      orderBy('creadoEn', 'desc')
-    );
-    
-    const querySnapshot = await getDocs(q);
-    const orders = [];
-    
-    querySnapshot.forEach((doc) => {
-      orders.push({
-        id: doc.id,
-        ...doc.data()
-      });
-    });
-    
-    return orders;
-    
-  } catch (error) {
-    console.error('Error getting today orders:', error);
-    throw new Error(handleFirebaseError(error));
+      await this.updateOrderStatus(orderId, 'listo_delivery');
+      
+      return { success: true };
+    } catch (error) {
+      console.error('❌ Error al asignar delivery:', error);
+      return { success: false, error: error.message };
+    }
   }
-};
+}
 
-/**
- * Obtener estadísticas de pedidos
- */
-export const getOrderStats = async () => {
-  try {
-    const orders = await getAllOrders();
-    
-    const stats = {
-      total: orders.length,
-      pending: orders.filter(o => o.status === ORDER_STATES.PENDING).length,
-      confirmed: orders.filter(o => o.status === ORDER_STATES.CONFIRMED).length,
-      preparing: orders.filter(o => o.status === ORDER_STATES.PREPARING).length,
-      onWay: orders.filter(o => o.status === ORDER_STATES.ON_WAY).length,
-      delivered: orders.filter(o => o.status === ORDER_STATES.DELIVERED).length,
-      cancelled: orders.filter(o => o.status === ORDER_STATES.CANCELLED).length,
-      totalRevenue: orders
-        .filter(o => o.status === ORDER_STATES.DELIVERED)
-        .reduce((sum, o) => sum + (o.total || 0), 0)
-    };
-    
-    return stats;
-    
-  } catch (error) {
-    console.error('Error getting order stats:', error);
-    throw new Error(handleFirebaseError(error));
-  }
-};
-
-export default {
-  createOrder,
-  getAllOrders,
-  getOrderById,
-  getUserOrders,
-  updateOrderStatus,
-  assignDeliveryToOrder,
-  releaseDeliveryFromOrder,
-  cancelOrder,
-  deleteOrder,
-  subscribeToOrders,
-  subscribeToUserOrders,
-  subscribeToOrder,
-  subscribeToPendingOrders,
-  getOrdersByStatus,
-  getTodayOrders,
-  getOrderStats,
-  ORDER_STATES,
-  ORDER_STATE_LABELS
-};
+export default new OrderService();

@@ -45,9 +45,24 @@ export const addToCart = async (product, quantity = 1) => {
     const cart = await getCart();
     const existingIndex = cart.findIndex(item => item.product.id === product.id);
     
+    // Validar stock disponible
+    const maxStock = product.stock || 0;
+    
     if (existingIndex >= 0) {
-      cart[existingIndex].quantity += quantity;
+      const newQuantity = cart[existingIndex].quantity + quantity;
+      
+      // No permitir exceder el stock
+      if (newQuantity > maxStock) {
+        throw new Error(`Solo hay ${maxStock} unidades disponibles`);
+      }
+      
+      cart[existingIndex].quantity = newQuantity;
     } else {
+      // Validar al agregar por primera vez
+      if (quantity > maxStock) {
+        throw new Error(`Solo hay ${maxStock} unidades disponibles`);
+      }
+      
       cart.push({ product, quantity });
     }
     
@@ -55,7 +70,7 @@ export const addToCart = async (product, quantity = 1) => {
     return cart;
   } catch (error) {
     console.error('Error adding to cart:', error);
-    return [];
+    throw error;
   }
 };
 
@@ -80,6 +95,15 @@ export const updateQuantity = async (productId, quantity) => {
       if (quantity <= 0) {
         return removeFromCart(productId);
       }
+      
+      // Validar stock disponible
+      const product = cart[itemIndex].product;
+      const maxStock = product.stock || 0;
+      
+      if (quantity > maxStock) {
+        throw new Error(`Solo hay ${maxStock} unidades disponibles`);
+      }
+      
       cart[itemIndex].quantity = quantity;
     }
     
@@ -87,7 +111,7 @@ export const updateQuantity = async (productId, quantity) => {
     return cart;
   } catch (error) {
     console.error('Error updating quantity:', error);
-    return [];
+    throw error;
   }
 };
 

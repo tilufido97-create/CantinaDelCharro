@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  TextInput, Image, Alert, ActivityIndicator
+  TextInput, Image, Alert, ActivityIndicator, Platform
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../../constants/theme';
@@ -140,33 +140,54 @@ const ProductsManagementScreen = () => {
   };
 
   const handleDelete = (product) => {
-    Alert.alert(
-      '⚠️ Eliminar Producto',
-      `¿Estás seguro de eliminar "${product.name}"? Esta acción se sincronizará instantáneamente con la app móvil.`,
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Sí, eliminar',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              console.log('Eliminando producto:', product.id);
-              const result = await firebaseProductService.deleteProduct(product.id);
-              
-              if (result.success) {
-                console.log('✅ Producto eliminado correctamente');
-                Alert.alert('Éxito', 'Producto eliminado. Los cambios se sincronizaron instantáneamente.');
-              } else {
-                Alert.alert('Error', result.error);
-              }
-            } catch (error) {
-              console.error('❌ Error eliminando producto:', error);
-              Alert.alert('Error', 'No se pudo eliminar el producto');
-            }
+    if (Platform.OS === 'web') {
+      if (window.confirm(`¿Estás seguro de eliminar "${product.name}"? Esta acción se sincronizará instantáneamente con la app móvil.`)) {
+        deleteProductFromFirebase(product.id);
+      }
+    } else {
+      Alert.alert(
+        '⚠️ Eliminar Producto',
+        `¿Estás seguro de eliminar "${product.name}"? Esta acción se sincronizará instantáneamente con la app móvil.`,
+        [
+          { text: 'Cancelar', style: 'cancel' },
+          {
+            text: 'Sí, eliminar',
+            style: 'destructive',
+            onPress: () => deleteProductFromFirebase(product.id)
           }
+        ]
+      );
+    }
+  };
+
+  const deleteProductFromFirebase = async (productId) => {
+    try {
+      console.log('🗑️ Eliminando producto:', productId);
+      const result = await firebaseProductService.deleteProduct(productId);
+      
+      if (result.success) {
+        console.log('✅ Producto eliminado correctamente');
+        if (Platform.OS === 'web') {
+          window.alert('Producto eliminado exitosamente');
+        } else {
+          Alert.alert('Éxito', 'Producto eliminado. Los cambios se sincronizaron instantáneamente.');
         }
-      ]
-    );
+      } else {
+        console.error('❌ Error:', result.error);
+        if (Platform.OS === 'web') {
+          window.alert('Error: ' + result.error);
+        } else {
+          Alert.alert('Error', result.error);
+        }
+      }
+    } catch (error) {
+      console.error('❌ Error eliminando producto:', error);
+      if (Platform.OS === 'web') {
+        window.alert('Error al eliminar el producto');
+      } else {
+        Alert.alert('Error', 'No se pudo eliminar el producto');
+      }
+    }
   };
 
   const handleToggleAvailability = async (productId) => {

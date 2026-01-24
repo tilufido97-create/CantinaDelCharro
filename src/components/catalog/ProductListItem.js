@@ -10,9 +10,13 @@ export default function ProductListItem({ product, onPress, onAddToCart, cartQua
   const hasDiscount = discount > 0;
   const finalPrice = hasDiscount ? price * (1 - discount / 100) : price;
   const categoryName = product.categoria || product.category || '';
+  const stock = product.stock || 0;
+  const isAvailable = product.disponible !== false && stock > 0;
+  const isOutOfStock = stock === 0;
+  const isNotAvailable = product.disponible === false;
 
   return (
-    <TouchableOpacity style={styles.container} onPress={onPress} activeOpacity={0.7}>
+    <View style={styles.container}>
       <View style={styles.content}>
         {/* Info Left */}
         <View style={styles.infoSection}>
@@ -24,26 +28,43 @@ export default function ProductListItem({ product, onPress, onAddToCart, cartQua
             <Text style={styles.categoryText}>{categoryName}</Text>
           </View>
           
+          {/* Badge de estado */}
+          {isOutOfStock && (
+            <View style={styles.outOfStockBadge}>
+              <Text style={styles.outOfStockText}>Sin Stock</Text>
+            </View>
+          )}
+          {isNotAvailable && !isOutOfStock && (
+            <View style={styles.notAvailableBadge}>
+              <Text style={styles.notAvailableText}>No Disponible</Text>
+            </View>
+          )}
+          
           <Text style={styles.price}>Bs. {finalPrice.toFixed(2)}</Text>
 
           {/* Add Button */}
           <TouchableOpacity
-            style={styles.addButton}
+            style={[styles.addButton, !isAvailable && styles.addButtonDisabled]}
             onPress={(e) => {
               e.stopPropagation();
-              onAddToCart(product);
+              if (isAvailable) {
+                onAddToCart(product);
+              }
             }}
+            disabled={!isAvailable}
           >
-            <Ionicons name="add" size={20} color="#0A0A0A" />
-            <Text style={styles.addButtonText}>AGREGAR</Text>
+            <Ionicons name="add" size={20} color={isAvailable ? "#0A0A0A" : "#8E8E93"} />
+            <Text style={[styles.addButtonText, !isAvailable && styles.addButtonTextDisabled]}>
+              {isOutOfStock ? 'AGOTADO' : isNotAvailable ? 'NO DISPONIBLE' : 'AGREGAR'}
+            </Text>
           </TouchableOpacity>
         </View>
 
         {/* Image Right */}
         <View style={styles.imageSection}>
-          {product.imagenURL || product.image ? (
+          {(product.images && product.images[0]) || product.imagenURL || product.image ? (
             <Image
-              source={{ uri: product.imagenURL || product.image }}
+              source={{ uri: product.images?.[0] || product.imagenURL || product.image }}
               style={styles.image}
               resizeMode="cover"
             />
@@ -66,7 +87,7 @@ export default function ProductListItem({ product, onPress, onAddToCart, cartQua
 
       {/* Divider */}
       <View style={styles.divider} />
-    </TouchableOpacity>
+    </View>
   );
 }
 
@@ -162,5 +183,38 @@ const styles = StyleSheet.create({
   },
   divider: {
     height: 0,
+  },
+  outOfStockBadge: {
+    backgroundColor: 'rgba(255, 59, 48, 0.2)',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 6,
+    alignSelf: 'flex-start',
+    marginBottom: 8,
+  },
+  outOfStockText: {
+    fontSize: 12,
+    color: '#FF3B30',
+    fontWeight: '600',
+  },
+  notAvailableBadge: {
+    backgroundColor: 'rgba(142, 142, 147, 0.2)',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 6,
+    alignSelf: 'flex-start',
+    marginBottom: 8,
+  },
+  notAvailableText: {
+    fontSize: 12,
+    color: '#8E8E93',
+    fontWeight: '600',
+  },
+  addButtonDisabled: {
+    backgroundColor: '#2C2C2E',
+    opacity: 0.6,
+  },
+  addButtonTextDisabled: {
+    color: '#8E8E93',
   },
 });

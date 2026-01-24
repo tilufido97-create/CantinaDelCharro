@@ -4,7 +4,7 @@ import AdminLoginScreen from '../screens/AdminLoginScreen';
 import AdminDashboardScreen from '../screens/AdminDashboardScreen';
 import ProductsManagementScreen from '../screens/ProductsManagementScreen';
 import OrdersManagementScreen from '../screens/OrdersManagementScreen';
-import FinancialManagementScreen from '../screens/FinancialManagementScreen';
+import FinancialManagementScreen from '../screens/FinancialManagementScreenNew';
 import UsersManagementScreen from '../screens/UsersManagementScreen';
 import DeliveryApplicationsScreen from '../screens/DeliveryApplicationsScreen';
 import PromotionsScreen from '../screens/PromotionsScreen';
