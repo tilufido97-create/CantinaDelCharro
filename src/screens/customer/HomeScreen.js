@@ -76,37 +76,47 @@ export default function HomeScreen({ navigation }) {
 
         {/* Quick Access */}
         <View style={styles.section}>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+          <View style={styles.quickAccessGrid}>
             <TouchableOpacity 
-              style={[styles.quickCard, styles.quickCardBar]}
-              onPress={() => navigation.navigate('CatalogTab')}
+              style={[styles.quickCard, styles.quickCardRewards]}
+              onPress={() => navigation.navigate('Rewards')}
             >
-              <View style={styles.favoriteHeart}>
-                <Text style={styles.heartIcon}>💚</Text>
-              </View>
-              <Text style={styles.quickIcon}>🍸</Text>
-              <Text style={styles.quickText}>Bar</Text>
-              <Text style={styles.quickSubtext}>Explora todo</Text>
+              <Text style={styles.quickBadge}>🎁</Text>
+              <Text style={styles.quickIcon}>🎁</Text>
+              <Text style={styles.quickText}>Recompensas</Text>
+              <Text style={styles.quickSubtext}>Canjea tus puntos</Text>
             </TouchableOpacity>
             
-            <TouchableOpacity style={[styles.quickCard, styles.quickCardTrending]}>
-              <View style={styles.trendingBadge}>
-                <Text style={styles.badgeEmoji}>🔥</Text>
-              </View>
+            <TouchableOpacity 
+              style={[styles.quickCard, styles.quickCardTrending]}
+              onPress={() => navigation.navigate('TrendingProducts')}
+            >
+              <Text style={styles.quickBadge}>🔥</Text>
               <Text style={styles.quickIcon}>📊</Text>
               <Text style={styles.quickText}>Más Pedidos</Text>
               <Text style={styles.quickSubtext}>Los favoritos</Text>
             </TouchableOpacity>
             
-            <TouchableOpacity style={[styles.quickCard, styles.quickCardHappy]}>
-              <View style={styles.happyBadge}>
-                <Text style={styles.badgeText}>2x1</Text>
-              </View>
-              <Text style={styles.quickIcon}>🎉</Text>
+            <TouchableOpacity 
+              style={[styles.quickCard, styles.quickCardHappy]}
+              onPress={() => navigation.navigate('HappyHour')}
+            >
+              <Text style={styles.quickBadge}>🎉</Text>
+              <Text style={styles.quickIcon}>🍺</Text>
               <Text style={styles.quickText}>Happy Hour</Text>
-              <Text style={styles.quickSubtext}>Hasta 50% OFF</Text>
+              <Text style={styles.quickSubtext}>Descuentos 2x1</Text>
             </TouchableOpacity>
-          </ScrollView>
+            
+            <TouchableOpacity 
+              style={[styles.quickCard, styles.quickCardOrders]}
+              onPress={() => navigation.navigate('MyOrders')}
+            >
+              <Text style={styles.quickBadge}>📦</Text>
+              <Text style={styles.quickIcon}>📋</Text>
+              <Text style={styles.quickText}>Mis Pedidos</Text>
+              <Text style={styles.quickSubtext}>Ver historial</Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* El Charro Recomienda */}
@@ -216,57 +226,40 @@ const styles = StyleSheet.create({
   bannerSubtitle: { fontSize: TYPOGRAPHY.sizes.sm, color: '#000', marginTop: SPACING.xs },
   section: { marginTop: SPACING.xl, paddingHorizontal: SPACING.xl },
   sectionTitle: { fontSize: TYPOGRAPHY.sizes.xl, fontWeight: TYPOGRAPHY.weights.bold, color: COLORS.text.primary, marginBottom: SPACING.md },
-  quickAccess: { flexDirection: 'row', gap: SPACING.md },
+  quickAccessGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
   quickCard: { 
-    width: 140,
+    width: '48%',
+    height: 140,
     backgroundColor: COLORS.bg.secondary, 
     borderRadius: BORDER_RADIUS.lg, 
-    padding: SPACING.lg, 
+    padding: SPACING.md, 
     alignItems: 'center',
-    marginRight: SPACING.md,
+    justifyContent: 'center',
     position: 'relative',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 184, 0, 0.2)',
-  },
-  quickCardBar: {
-    borderColor: '#34C759',
     borderWidth: 2,
+  },
+  quickCardRewards: {
+    borderColor: '#FFB800',
   },
   quickCardTrending: {
     borderColor: '#FF3B30',
   },
   quickCardHappy: {
-    borderColor: '#FFB800',
+    borderColor: '#34C759',
   },
-  favoriteHeart: {
-    position: 'absolute',
-    top: -8,
-    right: -8,
+  quickCardOrders: {
+    borderColor: '#007AFF',
   },
-  heartIcon: {
-    fontSize: 32,
-  },
-  trendingBadge: {
+  quickBadge: {
     position: 'absolute',
     top: 8,
     right: 8,
-  },
-  badgeEmoji: {
-    fontSize: 24,
-  },
-  happyBadge: {
-    position: 'absolute',
-    top: 8,
-    right: 8,
-    backgroundColor: '#FF3B30',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
-  },
-  badgeText: {
-    fontSize: 10,
-    fontWeight: '800',
-    color: '#FFF',
+    fontSize: 20,
   },
   quickIcon: { fontSize: 40, marginBottom: SPACING.sm },
   quickText: { fontSize: TYPOGRAPHY.sizes.base, fontWeight: '700', color: COLORS.text.primary },

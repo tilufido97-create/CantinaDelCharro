@@ -1,11 +1,40 @@
-import React from 'react';
-import { View, Text, StyleSheet, Image } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, Image, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import Button from '../../components/common/Button';
 import { COLORS, TYPOGRAPHY, SPACING } from '../../constants/theme';
+import { useGoogleAuth, handleGoogleResponse } from '../../services/authService';
 
 export default function WelcomeScreen({ navigation }) {
+  const [loading, setLoading] = useState(false);
+  const { request, response, promptAsync } = useGoogleAuth();
+
+  useEffect(() => {
+    if (response) {
+      handleGoogleSignIn();
+    }
+  }, [response]);
+
+  const handleGoogleSignIn = async () => {
+    setLoading(true);
+    try {
+      const result = await handleGoogleResponse(response);
+      if (result.success) {
+        Alert.alert('✅ Bienvenido', `Hola ${result.user.displayName || result.user.email}`);
+        navigation.navigate('AgeVerification', { user: result.user });
+      } else {
+        if (result.error !== 'Inicio de sesión cancelado') {
+          Alert.alert('Error', result.error);
+        }
+      }
+    } catch (error) {
+      Alert.alert('Error', 'No se pudo iniciar sesión');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <LinearGradient
       colors={[COLORS.bg.primary, COLORS.bg.secondary]}
@@ -30,7 +59,9 @@ export default function WelcomeScreen({ navigation }) {
           <Button
             title="Continuar con Google"
             variant="secondary"
-            onPress={() => alert('Google Login próximamente')}
+            onPress={() => promptAsync()}
+            disabled={!request || loading}
+            loading={loading}
             fullWidth
           />
           
@@ -38,13 +69,15 @@ export default function WelcomeScreen({ navigation }) {
             title="Continuar con Teléfono"
             variant="primary"
             onPress={() => navigation.navigate('PhoneLogin')}
+            disabled={loading}
             fullWidth
           />
           
           <Button
             title="Soy Delivery"
             variant="outline"
-            onPress={() => alert('Delivery Login próximamente')}
+            onPress={() => Alert.alert('Próximamente', 'Acceso para deliverys próximamente')}
+            disabled={loading}
             fullWidth
           />
           
@@ -98,6 +131,26 @@ const styles = StyleSheet.create({
   buttonsContainer: {
     paddingBottom: SPACING.xl,
     gap: SPACING.md,
+  },
+  badge: {
+    alignSelf: 'center',
+    backgroundColor: 'rgba(255, 184, 0, 0.1)',
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.xs,
+    borderRadius: 20,
+    marginTop: -SPACING.sm,
+  },
+  badgeText: {
+    fontSize: TYPOGRAPHY.sizes.xs,
+    color: COLORS.accent.gold,
+    fontWeight: TYPOGRAPHY.weights.semibold,
+  },
+  note: {
+    fontSize: TYPOGRAPHY.sizes.xs,
+    color: COLORS.text.tertiary,
+    textAlign: 'center',
+    marginTop: SPACING.sm,
+    fontStyle: 'italic',
   },
   terms: {
     fontSize: TYPOGRAPHY.sizes.xs,

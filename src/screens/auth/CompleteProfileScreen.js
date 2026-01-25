@@ -29,17 +29,26 @@ export default function CompleteProfileScreen({ navigation, route }) {
     setLoading(true);
     try {
       const profile = {
-        phone,
         firstName,
         lastName,
         email,
         avatar: selectedAvatar,
-        createdAt: new Date().toISOString(),
       };
 
-      await saveUserProfile(profile);
-      navigation.navigate('AgeVerification');
+      const result = await saveUserProfile(profile);
+      
+      if (result.success) {
+        Alert.alert('✅ Perfil Guardado', 'Tu información se guardó correctamente', [
+          {
+            text: 'Continuar',
+            onPress: () => navigation.navigate('AgeVerification', { user: result.user })
+          }
+        ]);
+      } else {
+        Alert.alert('Error', result.error || 'No se pudo guardar el perfil');
+      }
     } catch (error) {
+      console.error('Error guardando perfil:', error);
       Alert.alert('Error', 'No se pudo guardar el perfil');
     } finally {
       setLoading(false);

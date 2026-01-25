@@ -62,7 +62,7 @@ class OrderService {
         });
       }
 
-      // Crear pedido
+      // Crear pedido (SOLO PENDIENTE, NO PREPARANDO)
       const orderId = this.generateOrderId();
       const orderRef = ref(database, `orders/${orderId}`);
       
@@ -70,7 +70,7 @@ class OrderService {
         orderId,
         orderNumber: orderId.replace('ORDER_', ''),
         ...orderData,
-        status: 'pendiente',
+        status: 'pendiente', // SIEMPRE INICIA EN PENDIENTE
         createdAt: new Date().toISOString(),
         statusHistory: [
           {
@@ -83,7 +83,7 @@ class OrderService {
 
       await set(orderRef, order);
       
-      console.log('✅ Pedido creado:', orderId);
+      console.log('✅ Pedido creado en estado PENDIENTE:', orderId);
       return { success: true, orderId, order };
     } catch (error) {
       console.error('❌ Error al crear pedido:', error);

@@ -13,6 +13,7 @@ import AdminsManagementScreen from '../screens/AdminsManagementScreen';
 import FleetManagementScreen from '../screens/FleetManagementScreen';
 import OperatingCostsScreen from '../screens/OperatingCostsScreen';
 import DeliveryCalculatorScreen from '../screens/DeliveryCalculatorScreen';
+import AIConfigScreen from '../screens/AIConfigScreen';
 
 const Stack = createStackNavigator();
 
@@ -36,6 +37,7 @@ export default function AdminNavigator() {
       <Stack.Screen name="DeliveryCalculator" component={DeliveryCalculatorScreen} />
       <Stack.Screen name="Promotions" component={PromotionsScreen} />
       <Stack.Screen name="Analytics" component={AnalyticsScreen} />
+      <Stack.Screen name="AIConfig" component={AIConfigScreen} />
       <Stack.Screen name="Admins" component={AdminsManagementScreen} />
     </Stack.Navigator>
   );

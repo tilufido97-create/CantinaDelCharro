@@ -1,12 +1,22 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, TYPOGRAPHY, SPACING, BORDER_RADIUS } from '../../constants/theme';
 import Button from '../../components/common/Button';
+import { useOrderStatusNotifications } from '../../hooks/useOrderStatusNotifications';
+import { requestNotificationPermissions } from '../../services/orderNotificationService';
 
 export default function OrderConfirmationScreen({ route, navigation }) {
   const { orderId, orderNumber, total, deliveryType, estimatedTime } = route.params;
+
+  // Activar monitoreo de notificaciones para este pedido
+  useOrderStatusNotifications(orderId);
+
+  useEffect(() => {
+    // Solicitar permisos de notificación al confirmar pedido
+    requestNotificationPermissions();
+  }, []);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -48,11 +58,25 @@ export default function OrderConfirmationScreen({ route, navigation }) {
           </View>
         </View>
 
+        <View style={styles.notificationCard}>
+          <Ionicons name="notifications" size={24} color={COLORS.accent.gold} />
+          <View style={{ flex: 1 }}>
+            <Text style={styles.notificationTitle}>🔔 Notificaciones Activadas</Text>
+            <Text style={styles.notificationText}>
+              Te avisaremos cuando:
+              {deliveryType === 'pickup' 
+                ? '\n• Tu pedido esté preparando\n• Esté listo para recoger'
+                : '\n• Tu pedido esté preparando\n• El delivery salga\n• Esté llegando a tu casa'
+              }
+            </Text>
+          </View>
+        </View>
+
         {deliveryType === 'pickup' && (
           <View style={styles.infoCard}>
             <Ionicons name="information-circle" size={20} color={COLORS.accent.gold} />
             <Text style={styles.infoText}>
-              Te avisaremos cuando tu pedido esté listo para recoger
+              El Charro te avisará cuando tu pedido esté listo para recoger 🤠
             </Text>
           </View>
         )}
@@ -61,7 +85,7 @@ export default function OrderConfirmationScreen({ route, navigation }) {
           <View style={styles.infoCard}>
             <Ionicons name="information-circle" size={20} color={COLORS.accent.gold} />
             <Text style={styles.infoText}>
-              Puedes seguir el estado de tu pedido en tiempo real
+              Puedes seguir el estado de tu pedido en tiempo real 📍
             </Text>
           </View>
         )}
@@ -154,6 +178,28 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: TYPOGRAPHY.sizes.sm,
     color: COLORS.text.secondary,
+  },
+  notificationCard: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: SPACING.md,
+    backgroundColor: COLORS.accent.gold + '15',
+    padding: SPACING.lg,
+    borderRadius: BORDER_RADIUS.lg,
+    marginBottom: SPACING.md,
+    borderWidth: 1,
+    borderColor: COLORS.accent.gold + '40',
+  },
+  notificationTitle: {
+    fontSize: TYPOGRAPHY.sizes.base,
+    fontWeight: TYPOGRAPHY.weights.bold,
+    color: COLORS.text.primary,
+    marginBottom: SPACING.xs,
+  },
+  notificationText: {
+    fontSize: TYPOGRAPHY.sizes.sm,
+    color: COLORS.text.secondary,
+    lineHeight: 20,
   },
   actions: {
     gap: SPACING.md,

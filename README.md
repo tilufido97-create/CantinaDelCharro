@@ -173,6 +173,12 @@ Continuaremos con **FASE 2: AUTENTICACIÓN**
 
 4. **Compatibilidad:** Funciona en iOS y Android mediante Expo Go SDK 54.
 
+5. **Autenticación en Desarrollo:**
+   - ✅ Phone Auth usa código de prueba: **123456**
+   - ✅ No requiere SMS reales en Expo Go
+   - ✅ En producción funcionará con SMS reales
+   - 📖 Ver `AUTH_DESARROLLO_VS_PRODUCCION.md` para más detalles
+
 ---
 
 **¡Escanea el QR y disfruta tu cantina! 🍺💀🤠**

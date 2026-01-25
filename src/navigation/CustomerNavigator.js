@@ -4,8 +4,10 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Text } from 'react-native';
 import HomeScreen from '../screens/customer/HomeScreen';
 import CatalogScreen from '../screens/customer/CatalogScreen';
-import MixologyAssistantScreen from '../screens/customer/MixologyAssistantScreen';
+import CharroChatBotScreen from '../screens/customer/CharroChatBotScreen';
 import GamesScreen from '../screens/customer/GamesScreen';
+import HappyHourScreen from '../screens/customer/HappyHourScreen';
+import TrendingProductsScreen from '../screens/customer/TrendingProductsScreen';
 import RuletaRusaScreen from '../screens/customer/RuletaRusaScreen';
 import CulturaChupisticaScreen from '../screens/customer/CulturaChupisticaScreen';
 import ProfileScreen from '../screens/customer/ProfileScreen';
@@ -78,7 +80,7 @@ function TabNavigator() {
       />
       <Tab.Screen 
         name="MixologyTab"
-        component={MixologyAssistantScreen}
+        component={CharroChatBotScreen}
         options={{
           tabBarLabel: 'El Charro',
           tabBarIcon: ({ color, size }) => (
@@ -119,6 +121,8 @@ export default function CustomerNavigator() {
       }}
     >
       <Stack.Screen name="MainTabs" component={TabNavigator} />
+      <Stack.Screen name="HappyHour" component={HappyHourScreen} />
+      <Stack.Screen name="TrendingProducts" component={TrendingProductsScreen} />
       <Stack.Screen name="RuletaRusa" component={RuletaRusaScreen} />
       <Stack.Screen name="CulturaChupistica" component={CulturaChupisticaScreen} />
       <Stack.Screen name="Poker" component={PokerScreen} />

@@ -1,0 +1,152 @@
+.charro-analyst {
+  background: #1a1a1a;
+  border-radius: 12px;
+  padding: 24px;
+  margin: 20px 0;
+}
+
+.analyst-header {
+  text-align: center;
+  margin-bottom: 32px;
+}
+
+.analyst-header h2 {
+  color: #FFB800;
+  font-size: 28px;
+  margin-bottom: 8px;
+}
+
+.analyst-header p {
+  color: #999;
+  font-size: 14px;
+}
+
+.quick-questions h3,
+.custom-query h3 {
+  color: #fff;
+  font-size: 18px;
+  margin-bottom: 16px;
+}
+
+.questions-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 12px;
+  margin-bottom: 32px;
+}
+
+.quick-question-btn {
+  background: #2a2a2a;
+  border: 1px solid #FFB800;
+  color: #FFB800;
+  padding: 12px 16px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s;
+  font-size: 14px;
+  text-align: left;
+}
+
+.quick-question-btn:hover:not(:disabled) {
+  background: #FFB800;
+  color: #0A0A0A;
+  transform: translateY(-2px);
+}
+
+.quick-question-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.query-input-group {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.query-input {
+  flex: 1;
+  background: #2a2a2a;
+  border: 1px solid #444;
+  color: #fff;
+  padding: 12px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-family: inherit;
+  resize: vertical;
+}
+
+.query-input:focus {
+  outline: none;
+  border-color: #FFB800;
+}
+
+.analyze-btn {
+  background: #FFB800;
+  color: #0A0A0A;
+  border: none;
+  padding: 12px 32px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 14px;
+  transition: all 0.3s;
+}
+
+.analyze-btn:hover:not(:disabled) {
+  background: #FFC933;
+  transform: translateY(-2px);
+}
+
+.analyze-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.loading-indicator {
+  text-align: center;
+  padding: 40px;
+}
+
+.spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid #2a2a2a;
+  border-top-color: #FFB800;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin: 0 auto 16px;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.loading-indicator p {
+  color: #999;
+  font-size: 14px;
+}
+
+.analysis-result {
+  background: #2a2a2a;
+  border-radius: 8px;
+  padding: 24px;
+  border-left: 4px solid #FFB800;
+}
+
+.analysis-result h3 {
+  color: #FFB800;
+  font-size: 20px;
+  margin-bottom: 16px;
+}
+
+.analysis-content p {
+  color: #ddd;
+  line-height: 1.8;
+  margin-bottom: 12px;
+  font-size: 14px;
+}
+
+.analysis-content p:empty {
+  display: none;
+}

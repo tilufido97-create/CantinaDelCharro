@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { COLORS, TYPOGRAPHY, SPACING } from '../../constants/theme';
 import OTPInput from '../../components/common/OTPInput';
-import { verifyOTP, sendOTP } from '../../services/authService';
+import { verifyPhoneOTP, sendPhoneOTP } from '../../services/authService';
 
 export default function OTPVerificationScreen({ navigation, route }) {
   const { phone } = route.params;
@@ -26,12 +26,11 @@ export default function OTPVerificationScreen({ navigation, route }) {
     setLoading(true);
     
     try {
-      const result = await verifyOTP(phone, code);
+      const result = await verifyPhoneOTP(code);
       if (result.success) {
-        // Navegar a completar perfil
-        navigation.navigate('CompleteProfile', { phone });
+        navigation.navigate('CompleteProfile', { phone, user: result.user });
       } else {
-        Alert.alert('Error', result.message || 'Código incorrecto');
+        Alert.alert('Error', result.error || 'Código incorrecto');
       }
     } catch (error) {
       Alert.alert('Error', 'No se pudo verificar el código');
@@ -45,10 +44,14 @@ export default function OTPVerificationScreen({ navigation, route }) {
     
     setLoading(true);
     try {
-      await sendOTP(phone);
-      setTimer(60);
-      setCanResend(false);
-      Alert.alert('Éxito', 'Código reenviado');
+      const result = await sendPhoneOTP(phone);
+      if (result.success) {
+        setTimer(60);
+        setCanResend(false);
+        Alert.alert('Éxito', result.message || 'Código reenviado');
+      } else {
+        Alert.alert('Error', result.error || 'No se pudo reenviar');
+      }
     } catch (error) {
       Alert.alert('Error', 'No se pudo reenviar el código');
     } finally {

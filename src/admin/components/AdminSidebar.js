@@ -15,6 +15,7 @@ const MENU_ITEMS = [
   { id: 'calculator', icon: 'calculator', label: 'Calculadora Delivery', permission: 'approve_deliveries' },
   { id: 'promotions', icon: 'gift', label: 'Promociones', permission: 'manage_promos' },
   { id: 'analytics', icon: 'bar-chart', label: 'Analytics', permission: 'view_analytics' },
+  { id: 'ai-config', icon: 'sparkles', label: 'Configurar IA', permission: '*' },
   { id: 'admins', icon: 'shield-checkmark', label: 'Administradores', permission: 'super_only' },
 ];
 
@@ -32,6 +33,7 @@ export default function AdminSidebar({ user, activeScreen, onNavigate, onClose }
       'DeliveryCalculator': 'calculator',
       'Promotions': 'promotions',
       'Analytics': 'analytics',
+      'AIConfig': 'ai-config',
       'Admins': 'admins'
     };
     return screenMap[screenName] || 'dashboard';

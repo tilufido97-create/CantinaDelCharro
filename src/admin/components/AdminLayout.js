@@ -5,6 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../../constants/theme';
 import AdminSidebar from './AdminSidebar';
 import AdminTopBar from './AdminTopBar';
+import AdminAIAssistant from './AdminAIAssistant';
 import { useResponsive } from '../hooks/useResponsive';
 
 export default function AdminLayout({ children, title, user, showBackButton = false }) {
@@ -31,6 +32,7 @@ export default function AdminLayout({ children, title, user, showBackButton = fa
       calculator: 'DeliveryCalculator',
       promotions: 'Promotions',
       analytics: 'Analytics',
+      'ai-config': 'AIConfig',
       admins: 'Admins'
     };
     
@@ -87,6 +89,9 @@ export default function AdminLayout({ children, title, user, showBackButton = fa
           {children}
         </View>
       </View>
+
+      {/* Burbuja flotante de IA */}
+      <AdminAIAssistant />
     </View>
   );
 }

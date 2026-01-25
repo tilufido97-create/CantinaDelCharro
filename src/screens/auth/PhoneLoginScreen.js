@@ -17,7 +17,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import Button from '../../components/common/Button';
 import { COLORS, TYPOGRAPHY, SPACING, BORDER_RADIUS } from '../../constants/theme';
-import { sendOTP } from '../../services/authService';
+import { sendPhoneOTP } from '../../services/authService';
 
 const COUNTRIES = [
   { code: 'BO', dialCode: '+591', flag: '🇧🇴', name: 'Bolivia', length: 8 },
@@ -98,15 +98,24 @@ export default function PhoneLoginScreen({ navigation }) {
     const fullNumber = `${selectedCountry.dialCode}${phoneNumber.replace(/\s/g, '')}`;
     
     try {
-      const result = await sendOTP(fullNumber);
+      console.log('📱 Enviando SMS a:', fullNumber);
+      const result = await sendPhoneOTP(fullNumber);
+      
       if (result.success) {
+        console.log('✅ SMS enviado exitosamente');
+        Alert.alert('✅ Código Enviado', result.message || 'Revisa tu teléfono');
         navigation.navigate('OTPVerification', {
           phone: fullNumber,
           country: selectedCountry,
+          verificationId: result.verificationId,
         });
+      } else {
+        console.log('❌ Error:', result.error);
+        Alert.alert('Error', result.error || 'No se pudo enviar el código');
       }
     } catch (error) {
-      Alert.alert('Error', 'No se pudo enviar el código');
+      console.error('❌ Error inesperado:', error);
+      Alert.alert('Error', 'Ocurrió un error inesperado. Intenta de nuevo.');
     } finally {
       setLoading(false);
     }
@@ -177,13 +186,13 @@ export default function PhoneLoginScreen({ navigation }) {
               </View>
 
               <View style={styles.infoSection}>
-                <View style={styles.infoRow}>
-                  <Text style={styles.checkmark}>✓</Text>
-                  <Text style={styles.infoText}>Recibirás un código SMS</Text>
+                <View style={[styles.infoRow, { backgroundColor: '#FFB80020', padding: 12, borderRadius: 8, marginBottom: 8 }]}>
+                  <Text style={{ fontSize: 20 }}>🔧</Text>
+                  <Text style={[styles.infoText, { color: COLORS.accent.gold, fontWeight: '600' }]}>MODO DESARROLLO: Código de prueba = 123456</Text>
                 </View>
                 <View style={styles.infoRow}>
                   <Text style={styles.checkmark}>✓</Text>
-                  <Text style={styles.infoText}>Tus datos están seguros</Text>
+                  <Text style={styles.infoText}>Tus datos están seguros y encriptados</Text>
                 </View>
               </View>
 
@@ -197,18 +206,7 @@ export default function PhoneLoginScreen({ navigation }) {
                 fullWidth
               />
 
-              <View style={styles.divider}>
-                <View style={styles.dividerLine} />
-                <Text style={styles.dividerText}>o</Text>
-                <View style={styles.dividerLine} />
-              </View>
 
-              <Button
-                title="Continuar con Google"
-                variant="outline"
-                onPress={() => Alert.alert('Próximamente', 'Google Login')}
-                fullWidth
-              />
 
               {keyboardVisible && <View style={{ height: 40 }} />}
             </ScrollView>
@@ -303,4 +301,5 @@ const styles = StyleSheet.create({
   countryName: { flex: 1, fontSize: TYPOGRAPHY.sizes.base, color: COLORS.text.primary, fontWeight: TYPOGRAPHY.weights.medium },
   countryDialCode: { fontSize: TYPOGRAPHY.sizes.sm, color: COLORS.text.tertiary },
   selectedCheck: { fontSize: 20, color: COLORS.accent.gold },
+  noteText: { fontSize: TYPOGRAPHY.sizes.xs, color: COLORS.text.tertiary, textAlign: 'center', marginTop: SPACING.md, fontStyle: 'italic' },
 });

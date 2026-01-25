@@ -6,12 +6,14 @@ import { getAuth } from 'firebase/auth';
 // Configuración de Firebase
 // IMPORTANTE: Reemplazar con tus credenciales de Firebase Console
 const firebaseConfig = {
-  apiKey: "AIzaSyBXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
-  authDomain: "la-cantina-del-charro.firebaseapp.com",
-  projectId: "la-cantina-del-charro",
-  storageBucket: "la-cantina-del-charro.appspot.com",
-  messagingSenderId: "123456789012",
-  appId: "1:123456789012:web:abcdef123456"
+  apiKey: "AIzaSyAUobzGhb_tqFOGoNKMyIAFmpNxTHK0AYc",
+  authDomain: "cantinadelcharro.firebaseapp.com",
+  databaseURL: "https://cantinadelcharro-default-rtdb.firebaseio.com",
+  projectId: "cantinadelcharro",
+  storageBucket: "cantinadelcharro.firebasestorage.app",
+  messagingSenderId: "981284006966",
+  appId: "1:981284006966:web:31295364d9d1967dabbc97",
+  measurementId: "G-FBWVXDR9DB"
 };
 
 // Inicializar Firebase (solo si no existe)
@@ -64,7 +66,7 @@ export const COLLECTIONS = {
 
 // Helper para verificar si Firebase está configurado
 export const isFirebaseConfigured = () => {
-  return firebaseConfig.apiKey !== "AIzaSyBXXXXXXXXXXXXXXXXXXXXXXXXXXXX";
+  return firebaseConfig.apiKey === "AIzaSyAUobzGhb_tqFOGoNKMyIAFmpNxTHK0AYc";
 };
 
 // Helper para manejar errores de Firebase
