@@ -1,9 +1,10 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import aiConfigService from './aiConfigService';
+import { GEMINI_API_KEY } from '@env';
 
 class GeminiService {
   constructor() {
-    this.apiKey = 'AIzaSyAlQO-0zPCduTF2dPoNPmI23DC0fuABJhU';
+    this.apiKey = GEMINI_API_KEY;
     this.genAI = new GoogleGenerativeAI(this.apiKey);
     this.currentConfig = null;
   }
