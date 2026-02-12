@@ -28,7 +28,14 @@ export default function OTPVerificationScreen({ navigation, route }) {
     try {
       const result = await verifyPhoneOTP(code);
       if (result.success) {
-        navigation.navigate('CompleteProfile', { phone, user: result.user });
+        if (result.existingUser) {
+          // Usuario existente - ir directo a la app
+          console.log('✅ Usuario existente detectado, saltando registro');
+          // No navegar manualmente, authCompleted ya está guardado
+        } else {
+          // Usuario nuevo - continuar con registro
+          navigation.navigate('CompleteProfile', { phone, user: result.user });
+        }
       } else {
         Alert.alert('Error', result.error || 'Código incorrecto');
       }

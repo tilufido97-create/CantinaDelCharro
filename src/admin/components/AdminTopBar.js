@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Modal } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, SPACING } from '../../constants/theme';
@@ -12,6 +12,7 @@ export default function AdminTopBar({ title, user, showMenuButton = false, onMen
   const navigation = useNavigation();
   const [notifications, setNotifications] = useState([]);
   const [showNotifications, setShowNotifications] = useState(false);
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
 
   useEffect(() => {
     loadNotifications();
@@ -29,85 +30,14 @@ export default function AdminTopBar({ title, user, showMenuButton = false, onMen
 
   const unreadCount = notifications.filter(n => !n.read).length;
 
-  const handleLogout = () => {
-    console.log("🚑 LOGOUT - Usuario solicitó cerrar sesión");
-    logger.info('ADMIN_TOPBAR', 'Usuario solicitó logout', {
-      userEmail: user?.email,
-      userName: user?.name
-    });
-    
-    Alert.alert(
-      '🚑 Cerrar Sesión',
-      `Hola ${user?.name || 'Admin'},\n\n¿Estás seguro que deseas cerrar tu sesión en el panel administrativo?\n\nTendrás que volver a iniciar sesión para acceder.`,
-      [
-        { 
-          text: '❌ No, Continuar',
-          style: 'cancel',
-          onPress: () => {
-            console.log("❌ LOGOUT CANCELADO POR USUARIO");
-            logger.info('ADMIN_TOPBAR', 'Logout cancelado por usuario');
-          }
-        },
-        {
-          text: '✅ Sí, Cerrar Sesión',
-          style: 'destructive',
-          onPress: async () => {
-            console.log("🚀 ====================================");
-            console.log("🚀 EJECUTANDO LOGOUT CONFIRMADO");
-            console.log("🚀 ====================================");
-            console.log(`👤 Usuario: ${user?.name || 'Admin'}`);
-            console.log(`📧 Email: ${user?.email || 'N/A'}`);
-            console.log(`🕰 Timestamp: ${new Date().toISOString()}`);
-            
-            logger.info('ADMIN_TOPBAR', 'Ejecutando logout confirmado', {
-              userName: user?.name,
-              userEmail: user?.email,
-              userRole: user?.role
-            });
-            
-            try {
-              await logoutAdmin();
-              
-              console.log("✅ ====================================");
-              console.log("✅ LOGOUT COMPLETADO EXITOSAMENTE");
-              console.log("✅ ====================================");
-              console.log("🎯 Navegando a pantalla de login...");
-              
-              logger.success('ADMIN_TOPBAR', 'Logout completado exitosamente');
-              
-              navigation.replace('AdminLogin');
-              
-              console.log("✅ NAVEGACIÓN COMPLETADA");
-              
-            } catch (error) {
-              console.error("❌ ====================================");
-              console.error("❌ ERROR DURANTE LOGOUT");
-              console.error("❌ ====================================");
-              console.error(`💥 Error: ${error.message}`);
-              console.error(`📍 Stack: ${error.stack}`);
-              
-              logger.error('ADMIN_TOPBAR', 'Error durante logout', {
-                error: error.message,
-                stack: error.stack
-              });
-              
-              Alert.alert(
-                '❌ Error de Sistema',
-                'Hubo un problema al cerrar la sesión. Por favor, intenta nuevamente o recarga la página.',
-                [{ text: 'Entendido', style: 'default' }]
-              );
-            }
-          }
-        }
-      ],
-      {
-        cancelable: true,
-        onDismiss: () => {
-          console.log("⚠️ MODAL DE LOGOUT CERRADO SIN ACCIÓN");
-          logger.info('ADMIN_TOPBAR', 'Modal de logout cerrado sin acción');
-        }
-      }
-    );
+  const handleLogout = async () => {
+    try {
+      await logoutAdmin();
+      setShowLogoutModal(false);
+      navigation.reset({ index: 0, routes: [{ name: 'AdminLogin' }] });
+    } catch (error) {
+      alert('Error al cerrar sesión');
+    }
   };
 
   return (
@@ -141,11 +71,45 @@ export default function AdminTopBar({ title, user, showMenuButton = false, onMen
           <Text style={styles.userName}>{user?.name || 'Admin'}</Text>
         </View>
 
-        <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+        <TouchableOpacity style={styles.logoutButton} onPress={() => setShowLogoutModal(true)}>
           <Ionicons name="log-out-outline" size={20} color={COLORS.semantic.error} />
           <Text style={styles.logoutText}>Cerrar Sesión</Text>
         </TouchableOpacity>
       </View>
+
+      <Modal
+        visible={showLogoutModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowLogoutModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalIcon}>🚪</Text>
+            <Text style={styles.modalTitle}>Cerrar Sesión</Text>
+            <Text style={styles.modalMessage}>
+              ¿Estás seguro que deseas cerrar sesión?
+            </Text>
+            <Text style={styles.modalUser}>{user?.name || 'Admin'}</Text>
+            
+            <View style={styles.modalButtons}>
+              <TouchableOpacity 
+                style={styles.modalButtonCancel}
+                onPress={() => setShowLogoutModal(false)}
+              >
+                <Text style={styles.modalButtonCancelText}>Cancelar</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity 
+                style={styles.modalButtonConfirm}
+                onPress={handleLogout}
+              >
+                <Text style={styles.modalButtonConfirmText}>Cerrar Sesión</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -239,5 +203,75 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
     color: COLORS.semantic.error,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    backgroundColor: COLORS.background.secondary,
+    borderRadius: 16,
+    padding: 32,
+    width: 400,
+    maxWidth: '90%',
+    borderWidth: 1,
+    borderColor: COLORS.background.tertiary,
+  },
+  modalIcon: {
+    fontSize: 48,
+    textAlign: 'center',
+    marginBottom: 16,
+  },
+  modalTitle: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: COLORS.text.primary,
+    textAlign: 'center',
+    marginBottom: 12,
+  },
+  modalMessage: {
+    fontSize: 16,
+    color: COLORS.text.secondary,
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  modalUser: {
+    fontSize: 14,
+    color: COLORS.accent.gold,
+    textAlign: 'center',
+    fontWeight: '600',
+    marginBottom: 24,
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  modalButtonCancel: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 8,
+    backgroundColor: COLORS.background.tertiary,
+    borderWidth: 1,
+    borderColor: COLORS.text.tertiary,
+  },
+  modalButtonCancelText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: COLORS.text.primary,
+    textAlign: 'center',
+  },
+  modalButtonConfirm: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 8,
+    backgroundColor: COLORS.semantic.error,
+  },
+  modalButtonConfirmText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: COLORS.text.primary,
+    textAlign: 'center',
   },
 });

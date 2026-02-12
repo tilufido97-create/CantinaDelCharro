@@ -7,17 +7,19 @@ import ProfileHeader from '../../components/profile/ProfileHeader';
 import MenuSection from '../../components/profile/MenuSection';
 import MenuItem from '../../components/profile/MenuItem';
 import Button from '../../components/common/Button';
-import { loadProfileData } from '../../services/profileService';
-import { loadLoyaltyData } from '../../services/loyaltyService';
+import { getCurrentUser, signOut } from '../../services/authService';
+import { getClientById } from '../../services/clientService';
 
 export default function ProfileScreen({ navigation }) {
   const [profile, setProfile] = useState({
-    firstName: 'Usuario',
-    lastName: 'Charro',
-    phone: '+591 70123456',
+    firstName: 'Cargando...',
+    lastName: '',
+    phone: '',
+    email: '',
     avatar: 'avatar1'
   });
   const [loyaltyPoints, setLoyaltyPoints] = useState(0);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     loadData();
@@ -27,18 +29,40 @@ export default function ProfileScreen({ navigation }) {
 
   const loadData = async () => {
     try {
-      const profileData = await loadProfileData();
-      const loyaltyData = await loadLoyaltyData();
+      setLoading(true);
+      const currentUser = await getCurrentUser();
       
-      if (profileData) {
-        setProfile(profileData);
+      if (currentUser && currentUser.clientId) {
+        // Load client data from database
+        const clientData = await getClientById(currentUser.clientId);
+        
+        if (clientData) {
+          setProfile({
+            firstName: clientData.nombre || 'Usuario',
+            lastName: clientData.apellido || 'Charro',
+            phone: clientData.telefono || currentUser.phoneNumber || '',
+            email: clientData.email || currentUser.email || '',
+            avatar: clientData.avatar || currentUser.avatar || 'avatar1'
+          });
+        } else {
+          // Fallback to user data
+          setProfile({
+            firstName: currentUser.firstName || 'Usuario',
+            lastName: currentUser.lastName || 'Charro', 
+            phone: currentUser.phoneNumber || '',
+            email: currentUser.email || '',
+            avatar: currentUser.avatar || 'avatar1'
+          });
+        }
       }
       
-      if (loyaltyData) {
-        setLoyaltyPoints(loyaltyData.points);
-      }
+      // TODO: Load loyalty points from database
+      setLoyaltyPoints(0);
+      
     } catch (error) {
       console.log('Error loading profile:', error);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -52,9 +76,11 @@ export default function ProfileScreen({ navigation }) {
           text: 'Cerrar Sesión',
           style: 'destructive',
           onPress: async () => {
-            await AsyncStorage.removeItem('authCompleted');
-            await AsyncStorage.removeItem('userProfile');
-            console.log('Sesión cerrada');
+            const result = await signOut();
+            if (result.success) {
+              await AsyncStorage.removeItem('authCompleted');
+              console.log('Sesión cerrada exitosamente');
+            }
           },
         },
       ]

@@ -5,18 +5,18 @@ import { COLORS, SPACING } from '../../constants/theme';
 import { hasPermission } from '../utils/permissions';
 
 const MENU_ITEMS = [
-  { id: 'dashboard', icon: 'stats-chart', label: 'Dashboard', permission: '*' },
-  { id: 'products', icon: 'cube', label: 'Productos', permission: 'manage_products' },
-  { id: 'orders', icon: 'receipt', label: 'Pedidos', permission: 'manage_orders' },
-  { id: 'financial', icon: 'wallet', label: 'Finanzas', permission: 'manage_orders' },
-  { id: 'users', icon: 'people', label: 'Usuarios', permission: 'manage_users' },
-  { id: 'deliveries', icon: 'bicycle', label: 'Deliverys', permission: 'approve_deliveries' },
-  { id: 'fleet', icon: 'car-sport', label: 'Gestión de Flota', permission: 'approve_deliveries' },
-  { id: 'calculator', icon: 'calculator', label: 'Calculadora Delivery', permission: 'approve_deliveries' },
-  { id: 'promotions', icon: 'gift', label: 'Promociones', permission: 'manage_promos' },
-  { id: 'analytics', icon: 'bar-chart', label: 'Analytics', permission: 'view_analytics' },
-  { id: 'ai-config', icon: 'sparkles', label: 'Configurar IA', permission: '*' },
-  { id: 'admins', icon: 'shield-checkmark', label: 'Administradores', permission: 'super_only' },
+  { id: 'dashboard', icon: 'stats-chart', label: 'Dashboard', roles: ['admin', 'repartidor', 'reponedor'] },
+  { id: 'products', icon: 'cube', label: 'Productos', roles: ['admin', 'repartidor', 'reponedor'] },
+  { id: 'orders', icon: 'receipt', label: 'Pedidos', roles: ['admin', 'repartidor', 'reponedor'] },
+  { id: 'deliveries', icon: 'bicycle', label: 'Deliverys', roles: ['admin', 'repartidor'] },
+  { id: 'calculator', icon: 'calculator', label: 'Calculadora Delivery', roles: ['admin', 'repartidor'] },
+  { id: 'promotions', icon: 'gift', label: 'Promociones', roles: ['admin', 'repartidor', 'reponedor'] },
+  { id: 'financial', icon: 'wallet', label: 'Finanzas', roles: ['admin'] },
+  { id: 'users', icon: 'people', label: 'Usuarios', roles: ['admin'] },
+  { id: 'fleet', icon: 'car-sport', label: 'Gestión de Flota', roles: ['admin', 'repartidor'] },
+  { id: 'analytics', icon: 'bar-chart', label: 'Analytics', roles: ['admin'] },
+  { id: 'ai-config', icon: 'sparkles', label: 'Configurar IA', roles: ['admin'] },
+  { id: 'admins', icon: 'shield-checkmark', label: 'Administradores', roles: ['admin'] },
 ];
 
 export default function AdminSidebar({ user, activeScreen, onNavigate, onClose }) {
@@ -41,19 +41,9 @@ export default function AdminSidebar({ user, activeScreen, onNavigate, onClose }
   
   const currentScreenId = getScreenId(activeScreen);
   
-  const visibleItems = MENU_ITEMS.filter(item => {
-    // SUPER_ADMIN ve todo
-    if (user?.permissions?.includes('*')) return true;
-    
-    // Dashboard es visible para todos
-    if (item.permission === '*') return true;
-    
-    // Administradores solo para SUPER_ADMIN
-    if (item.permission === 'super_only') return false;
-    
-    // Verificar permiso específico
-    return hasPermission(user, item.permission);
-  });
+  const visibleItems = MENU_ITEMS.filter(item => 
+    item.roles.includes(user?.role?.toLowerCase())
+  );
 
   return (
     <View style={styles.sidebar}>

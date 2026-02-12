@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { createStackNavigator } from '@react-navigation/stack';
+import { ActivityIndicator, View } from 'react-native';
 import AdminLoginScreen from '../screens/AdminLoginScreen';
 import AdminDashboardScreen from '../screens/AdminDashboardScreen';
 import ProductsManagementScreen from '../screens/ProductsManagementScreen';
@@ -14,12 +15,35 @@ import FleetManagementScreen from '../screens/FleetManagementScreen';
 import OperatingCostsScreen from '../screens/OperatingCostsScreen';
 import DeliveryCalculatorScreen from '../screens/DeliveryCalculatorScreen';
 import AIConfigScreen from '../screens/AIConfigScreen';
+import { getCurrentAdmin } from '../utils/adminAuth';
 
 const Stack = createStackNavigator();
 
 export default function AdminNavigator() {
+  const [initialRoute, setInitialRoute] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    checkAuth();
+  }, []);
+
+  const checkAuth = async () => {
+    const admin = await getCurrentAdmin();
+    setInitialRoute(admin ? 'AdminDashboard' : 'AdminLogin');
+    setLoading(false);
+  };
+
+  if (loading) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#0A0A0A' }}>
+        <ActivityIndicator size="large" color="#FFB800" />
+      </View>
+    );
+  }
+
   return (
     <Stack.Navigator
+      initialRouteName={initialRoute}
       screenOptions={{
         headerShown: false,
         cardStyle: { backgroundColor: '#0A0A0A' }

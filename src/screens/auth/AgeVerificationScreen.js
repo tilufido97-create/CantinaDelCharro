@@ -6,15 +6,19 @@ import {
   StyleSheet,
   TouchableOpacity,
   Animated,
+  Alert,
+  ScrollView,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
-import KeyboardScrollWrapper from '../../components/common/KeyboardScrollWrapper';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import Button from '../../components/common/Button';
 import { COLORS, TYPOGRAPHY, SPACING, BORDER_RADIUS } from '../../constants/theme';
+import { saveClient } from '../../services/clientService';
 
 export default function AgeVerificationScreen({ route, navigation }) {
-  const { firstName } = route?.params || { firstName: 'amigo' };
+  const { user, profileData } = route?.params || {};
   
   const [day, setDay] = useState('');
   const [month, setMonth] = useState('');
@@ -22,6 +26,7 @@ export default function AgeVerificationScreen({ route, navigation }) {
   const [age, setAge] = useState(null);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [confirmAge, setConfirmAge] = useState(false);
   
   const monthRef = useRef(null);
   const yearRef = useRef(null);
@@ -110,7 +115,8 @@ export default function AgeVerificationScreen({ route, navigation }) {
       month.length === 2 &&
       year.length === 4 &&
       age !== null &&
-      age >= 18
+      age >= 18 &&
+      confirmAge
     );
   };
 
@@ -118,6 +124,8 @@ export default function AgeVerificationScreen({ route, navigation }) {
     if (!isFormValid()) {
       if (age !== null && age < 18) {
         setError('Debes ser mayor de 18 años para continuar');
+      } else if (!confirmAge) {
+        setError('Debes confirmar que eres mayor de edad');
       } else {
         setError('Por favor completa tu fecha de nacimiento');
       }
@@ -126,22 +134,51 @@ export default function AgeVerificationScreen({ route, navigation }) {
 
     setLoading(true);
     
-    Animated.spring(confettiAnimation, {
-      toValue: 1,
-      tension: 50,
-      friction: 7,
-      useNativeDriver: true,
-    }).start();
-
     try {
-      await AsyncStorage.setItem('authCompleted', 'true');
-      console.log('✅ authCompleted guardado - RootNavigator detectará el cambio');
+      // Save client data to database
+      const clientData = {
+        firstName: profileData?.firstName || user?.firstName,
+        lastName: profileData?.lastName || user?.lastName,
+        email: profileData?.email || user?.email,
+        phoneNumber: profileData?.phoneNumber || user?.phoneNumber,
+        birthDate: `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`,
+        avatar: profileData?.avatar || user?.avatar
+      };
+
+      console.log('💾 Guardando cliente completo en base de datos:', clientData);
+      const result = await saveClient(clientData);
       
-      // No navegar manualmente, dejar que RootNavigator detecte el cambio
-      // El interval de 1 segundo lo detectará automáticamente
+      if (result.success) {
+        // Update user data in AsyncStorage with client info
+        const updatedUser = {
+          ...user,
+          clientId: result.clientId,
+          birthDate: clientData.birthDate,
+          ageVerified: true,
+          profileCompleted: true
+        };
+        
+        await AsyncStorage.setItem('user_data', JSON.stringify(updatedUser));
+        
+        // Show success animation
+        Animated.spring(confettiAnimation, {
+          toValue: 1,
+          tension: 50,
+          friction: 7,
+          useNativeDriver: true,
+        }).start();
+
+        // Complete authentication
+        await AsyncStorage.setItem('authCompleted', 'true');
+        console.log('✅ Cliente guardado en BD y authCompleted - RootNavigator detectará el cambio');
+        
+      } else {
+        Alert.alert('Error', result.error || 'No se pudo guardar en la base de datos');
+        setLoading(false);
+      }
     } catch (error) {
-      console.error('❌ Error guardando auth:', error);
-      setError('Error al completar registro');
+      console.error('❌ Error guardando cliente:', error);
+      Alert.alert('Error', 'Error al completar registro');
       setLoading(false);
     }
   };
@@ -151,15 +188,22 @@ export default function AgeVerificationScreen({ route, navigation }) {
       colors={[COLORS.bg.primary, COLORS.bg.secondary]}
       style={styles.container}
     >
-      <KeyboardScrollWrapper>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => navigation.goBack()}
-        >
-          <Text style={styles.backText}>← Volver</Text>
-        </TouchableOpacity>
+      <SafeAreaView style={styles.safeArea}>
+        <View style={styles.header}>
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => navigation.goBack()}
+          >
+            <Ionicons name="arrow-back" size={24} color={COLORS.text.primary} />
+            <Text style={styles.backText}>Volver</Text>
+          </TouchableOpacity>
+        </View>
 
-        <View style={styles.content}>
+        <ScrollView 
+          style={styles.scrollView}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+        >
           <View style={styles.warningContainer}>
             <Text style={styles.warningEmoji}>⚠️</Text>
             <Text style={styles.warningBadge}>+18</Text>
@@ -258,19 +302,35 @@ export default function AgeVerificationScreen({ route, navigation }) {
             </View>
           </View>
 
-          <View style={{ height: 20 }} />
+          <View style={styles.checkboxSection}>
+            <TouchableOpacity 
+              style={styles.checkboxContainer}
+              onPress={() => {
+                setConfirmAge(!confirmAge);
+                setError(''); // Clear error when user interacts
+              }}
+              activeOpacity={0.7}
+            >
+              <View style={[styles.checkbox, confirmAge && styles.checkboxChecked]}>
+                {confirmAge && (
+                  <Text style={styles.checkmarkEmoji}>✅</Text>
+                )}
+              </View>
+              <Text style={styles.checkboxText}>
+                Confirmo que soy mayor de 18 años y acepto el uso de la aplicación
+              </Text>
+            </TouchableOpacity>
+          </View>
 
           <Button
-            title="Verificar Edad"
+            title="Terminar Registro"
             onPress={handleVerifyAge}
             disabled={!isFormValid()}
             loading={loading}
             fullWidth
           />
-
-          <View style={{ height: 100 }} />
-        </View>
-      </KeyboardScrollWrapper>
+        </ScrollView>
+      </SafeAreaView>
 
       {confettiAnimation._value > 0 && (
         <Animated.View
@@ -295,34 +355,194 @@ export default function AgeVerificationScreen({ route, navigation }) {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  backButton: { paddingHorizontal: SPACING.xl, paddingVertical: SPACING.md },
-  backText: { fontSize: TYPOGRAPHY.sizes.base, color: COLORS.text.secondary, fontWeight: TYPOGRAPHY.weights.medium },
-  content: { flex: 1, paddingHorizontal: SPACING.xl },
-  warningContainer: { alignItems: 'center', marginTop: SPACING.xxl, marginBottom: SPACING.lg },
+  safeArea: { flex: 1 },
+  header: {
+    paddingHorizontal: SPACING.lg,
+    paddingVertical: SPACING.sm,
+  },
+  backButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.xs,
+  },
+  backText: {
+    fontSize: TYPOGRAPHY.sizes.base,
+    color: COLORS.text.primary,
+    fontWeight: TYPOGRAPHY.weights.medium,
+  },
+  scrollView: { flex: 1 },
+  scrollContent: {
+    flexGrow: 1,
+    paddingHorizontal: SPACING.xl,
+    paddingBottom: SPACING.xxl,
+  },
+  warningContainer: {
+    alignItems: 'center',
+    marginTop: SPACING.lg,
+    marginBottom: SPACING.lg,
+  },
   warningEmoji: { fontSize: 60, marginBottom: SPACING.sm },
-  warningBadge: { backgroundColor: COLORS.warning, color: '#000', fontSize: TYPOGRAPHY.sizes.xl, fontWeight: TYPOGRAPHY.weights.bold, paddingHorizontal: SPACING.md, paddingVertical: SPACING.xs, borderRadius: BORDER_RADIUS.full },
-  title: { fontSize: TYPOGRAPHY.sizes['3xl'], fontWeight: TYPOGRAPHY.weights.bold, color: COLORS.text.primary, textAlign: 'center', marginBottom: SPACING.sm },
-  subtitle: { fontSize: TYPOGRAPHY.sizes.base, color: COLORS.text.secondary, textAlign: 'center', marginBottom: SPACING.xxl, lineHeight: 24 },
+  warningBadge: {
+    backgroundColor: COLORS.warning,
+    color: '#000',
+    fontSize: TYPOGRAPHY.sizes.xl,
+    fontWeight: TYPOGRAPHY.weights.bold,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.xs,
+    borderRadius: BORDER_RADIUS.full,
+  },
+  title: {
+    fontSize: TYPOGRAPHY.sizes['3xl'],
+    fontWeight: TYPOGRAPHY.weights.bold,
+    color: COLORS.text.primary,
+    textAlign: 'center',
+    marginBottom: SPACING.sm,
+  },
+  subtitle: {
+    fontSize: TYPOGRAPHY.sizes.base,
+    color: COLORS.text.secondary,
+    textAlign: 'center',
+    marginBottom: SPACING.xl,
+    lineHeight: 24,
+  },
   dateContainer: { marginBottom: SPACING.lg },
-  label: { fontSize: TYPOGRAPHY.sizes.base, color: COLORS.text.secondary, marginBottom: SPACING.md, textAlign: 'center', fontWeight: TYPOGRAPHY.weights.medium },
-  inputsRow: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: SPACING.sm },
+  label: {
+    fontSize: TYPOGRAPHY.sizes.base,
+    color: COLORS.text.secondary,
+    marginBottom: SPACING.md,
+    textAlign: 'center',
+    fontWeight: TYPOGRAPHY.weights.medium,
+  },
+  inputsRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: SPACING.sm,
+  },
   inputWrapper: { alignItems: 'center' },
-  dateInput: { width: 70, height: 60, backgroundColor: COLORS.bg.tertiary, borderRadius: BORDER_RADIUS.md, textAlign: 'center', fontSize: TYPOGRAPHY.sizes.xl, color: COLORS.text.primary, fontWeight: TYPOGRAPHY.weights.bold, borderWidth: 2, borderColor: 'transparent' },
+  dateInput: {
+    width: 70,
+    height: 60,
+    backgroundColor: COLORS.bg.tertiary,
+    borderRadius: BORDER_RADIUS.md,
+    textAlign: 'center',
+    fontSize: TYPOGRAPHY.sizes.xl,
+    color: COLORS.text.primary,
+    fontWeight: TYPOGRAPHY.weights.bold,
+    borderWidth: 2,
+    borderColor: 'transparent',
+  },
   yearInput: { width: 90 },
-  inputLabel: { fontSize: TYPOGRAPHY.sizes.xs, color: COLORS.text.tertiary, marginTop: SPACING.xs },
-  separator: { fontSize: TYPOGRAPHY.sizes['2xl'], color: COLORS.text.tertiary, marginBottom: 20 },
-  ageDisplay: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: SPACING.sm, marginTop: SPACING.lg, marginBottom: SPACING.md },
+  inputLabel: {
+    fontSize: TYPOGRAPHY.sizes.xs,
+    color: COLORS.text.tertiary,
+    marginTop: SPACING.xs,
+  },
+  separator: {
+    fontSize: TYPOGRAPHY.sizes['2xl'],
+    color: COLORS.text.tertiary,
+    marginBottom: 20,
+  },
+  ageDisplay: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: SPACING.sm,
+    marginTop: SPACING.lg,
+    marginBottom: SPACING.md,
+  },
   ageCheck: { fontSize: 24 },
-  ageText: { fontSize: TYPOGRAPHY.sizes.lg, color: COLORS.success, fontWeight: TYPOGRAPHY.weights.semibold },
+  ageText: {
+    fontSize: TYPOGRAPHY.sizes.lg,
+    color: COLORS.success,
+    fontWeight: TYPOGRAPHY.weights.semibold,
+  },
   ageError: { fontSize: 24 },
-  ageErrorText: { fontSize: TYPOGRAPHY.sizes.base, color: COLORS.error, fontWeight: TYPOGRAPHY.weights.semibold },
-  errorText: { fontSize: TYPOGRAPHY.sizes.sm, color: COLORS.error, textAlign: 'center', marginBottom: SPACING.md },
-  infoSection: { marginTop: SPACING.xl, marginBottom: SPACING.lg, gap: SPACING.md },
-  infoRow: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm, justifyContent: 'center' },
+  ageErrorText: {
+    fontSize: TYPOGRAPHY.sizes.base,
+    color: COLORS.error,
+    fontWeight: TYPOGRAPHY.weights.semibold,
+  },
+  errorText: {
+    fontSize: TYPOGRAPHY.sizes.sm,
+    color: COLORS.error,
+    textAlign: 'center',
+    marginBottom: SPACING.md,
+  },
+  infoSection: {
+    marginTop: SPACING.lg,
+    marginBottom: SPACING.lg,
+    gap: SPACING.md,
+  },
+  infoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
+    justifyContent: 'center',
+  },
   infoIcon: { fontSize: 16 },
-  infoText: { fontSize: TYPOGRAPHY.sizes.sm, color: COLORS.text.tertiary },
-  successOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0, 0, 0, 0.9)', justifyContent: 'center', alignItems: 'center' },
+  infoText: {
+    fontSize: TYPOGRAPHY.sizes.sm,
+    color: COLORS.text.tertiary,
+  },
+  checkboxSection: {
+    marginBottom: SPACING.xl,
+    backgroundColor: COLORS.bg.secondary,
+    borderRadius: BORDER_RADIUS.lg,
+    padding: SPACING.lg,
+    borderWidth: 1,
+    borderColor: COLORS.bg.tertiary,
+  },
+  checkboxContainer: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: SPACING.md,
+  },
+  checkbox: {
+    width: 28,
+    height: 28,
+    borderRadius: 6,
+    borderWidth: 2,
+    borderColor: COLORS.text.tertiary,
+    backgroundColor: 'transparent',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 2,
+  },
+  checkboxChecked: {
+    backgroundColor: COLORS.bg.tertiary,
+    borderColor: COLORS.primary,
+  },
+  checkmarkEmoji: {
+    fontSize: 16,
+    lineHeight: 18,
+  },
+  checkboxText: {
+    flex: 1,
+    fontSize: TYPOGRAPHY.sizes.base,
+    color: COLORS.text.primary,
+    lineHeight: 22,
+    fontWeight: TYPOGRAPHY.weights.medium,
+  },
+  successOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.9)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   confettiEmoji: { fontSize: 100, marginBottom: SPACING.lg },
-  successText: { fontSize: TYPOGRAPHY.sizes['3xl'], fontWeight: TYPOGRAPHY.weights.bold, color: COLORS.success, marginBottom: SPACING.sm },
-  successSubtext: { fontSize: TYPOGRAPHY.sizes.base, color: COLORS.text.secondary },
+  successText: {
+    fontSize: TYPOGRAPHY.sizes['3xl'],
+    fontWeight: TYPOGRAPHY.weights.bold,
+    color: COLORS.success,
+    marginBottom: SPACING.sm,
+  },
+  successSubtext: {
+    fontSize: TYPOGRAPHY.sizes.base,
+    color: COLORS.text.secondary,
+  },
 });

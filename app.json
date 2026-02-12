@@ -21,27 +21,29 @@
     ],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.cantinacharro.app",
+      "bundleIdentifier": "com.cantinadelcharro.app",
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "La Cantina del Charro necesita tu ubicación para mostrarte tiendas cercanas y calcular el tiempo de entrega.",
         "NSLocationAlwaysAndWhenInUseUsageDescription": "La Cantina del Charro necesita tu ubicación para rastrear tu pedido en tiempo real.",
         "NSCameraUsageDescription": "La Cantina del Charro necesita acceso a tu cámara para escanear códigos QR y jugar Shot Challenge.",
         "NSPhotoLibraryUsageDescription": "La Cantina del Charro necesita acceso a tu galería para subir fotos de perfil."
-      }
+      },
+      "googleServicesFile": "./GoogleService-Info.plist"
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#0A0A0A"
       },
-      "package": "com.cantinacharro.app",
+      "package": "com.cantinadelcharro.app",
       "permissions": [
         "ACCESS_COARSE_LOCATION",
         "ACCESS_FINE_LOCATION",
         "CAMERA",
         "READ_EXTERNAL_STORAGE",
         "WRITE_EXTERNAL_STORAGE"
-      ]
+      ],
+      "googleServicesFile": "./google-services.json"
     },
     "web": {
       "favicon": "./assets/favicon.png",
@@ -59,7 +61,14 @@
           "locationAlwaysAndWhenInUsePermission": "La Cantina del Charro necesita tu ubicación para mostrarte tiendas cercanas y rastrear tu pedido."
         }
       ],
-      "expo-video"
+      "expo-video",
+      [
+        "expo-google-sign-in",
+        {
+          "iosUrlScheme": "com.cantinadelcharro.app"
+        }
+      ],
+      "expo-web-browser"
     ]
   }
 }

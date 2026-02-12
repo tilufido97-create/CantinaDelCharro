@@ -5,43 +5,106 @@ import { Ionicons } from '@expo/vector-icons';
 import { COLORS, SPACING } from '../../constants/theme';
 import Input from '../../components/common/Input';
 import Button from '../../components/common/Button';
-import { loadProfileData, updateName } from '../../services/profileService';
+import { getCurrentUser, signOut } from '../../services/authService';
+import { getClientById, updateClient } from '../../services/clientService';
+import { getClientByPhone } from '../../services/clientService';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function EditProfileScreen({ navigation }) {
   const [profile, setProfile] = useState(null);
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
+  const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
+  const [originalPhone, setOriginalPhone] = useState('');
   const [loading, setLoading] = useState(false);
+  const [clientId, setClientId] = useState(null);
 
   useEffect(() => {
     loadData();
   }, []);
 
   const loadData = async () => {
-    const data = await loadProfileData();
-    if (data) {
-      setProfile(data);
-      setFirstName(data.firstName || '');
-      setLastName(data.lastName || '');
+    try {
+      const currentUser = await getCurrentUser();
+      
+      if (currentUser && currentUser.clientId) {
+        const clientData = await getClientById(currentUser.clientId);
+        
+        if (clientData) {
+          setFirstName(clientData.nombre || '');
+          setLastName(clientData.apellido || '');
+          setEmail(clientData.email || '');
+          setPhone(clientData.telefono || '');
+          setOriginalPhone(clientData.telefono || '');
+          setClientId(currentUser.clientId);
+          setProfile(clientData);
+        }
+      }
+    } catch (error) {
+      console.log('Error loading profile:', error);
     }
   };
 
   const handleSave = async () => {
     if (!firstName.trim() || !lastName.trim()) {
-      Alert.alert('Error', 'Por favor completa todos los campos');
+      Alert.alert('Error', 'Por favor completa nombre y apellido');
+      return;
+    }
+
+    // Check if phone number changed
+    if (phone !== originalPhone) {
+      Alert.alert(
+        'Cambio de Teléfono',
+        'Para cambiar tu número de teléfono debes cerrar sesión y registrarte nuevamente.',
+        [
+          { text: 'Cancelar', style: 'cancel' },
+          {
+            text: 'Cerrar Sesión',
+            style: 'destructive',
+            onPress: async () => {
+              await signOut();
+              await AsyncStorage.removeItem('authCompleted');
+            }
+          }
+        ]
+      );
       return;
     }
 
     setLoading(true);
-    const result = await updateName(firstName.trim(), lastName.trim());
-    setLoading(false);
+    
+    try {
+      const updateData = {
+        nombre: firstName.trim(),
+        apellido: lastName.trim(),
+        email: email.trim() || null
+      };
 
-    if (result.success) {
-      Alert.alert('Éxito', 'Perfil actualizado correctamente', [
-        { text: 'OK', onPress: () => navigation.goBack() }
-      ]);
-    } else {
+      const result = await updateClient(clientId, updateData);
+      
+      if (result.success) {
+        // Update AsyncStorage user data
+        const currentUser = await getCurrentUser();
+        const updatedUser = {
+          ...currentUser,
+          firstName: firstName.trim(),
+          lastName: lastName.trim(),
+          email: email.trim() || null
+        };
+        await AsyncStorage.setItem('user_data', JSON.stringify(updatedUser));
+        
+        Alert.alert('Éxito', 'Perfil actualizado correctamente', [
+          { text: 'OK', onPress: () => navigation.goBack() }
+        ]);
+      } else {
+        Alert.alert('Error', result.error || 'No se pudo actualizar el perfil');
+      }
+    } catch (error) {
+      console.error('Error updating profile:', error);
       Alert.alert('Error', 'No se pudo actualizar el perfil');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -86,10 +149,29 @@ export default function EditProfileScreen({ navigation }) {
               autoCapitalize="words"
             />
 
+            <Input
+              label="Email (opcional)"
+              value={email}
+              onChangeText={setEmail}
+              placeholder="tu@email.com"
+              keyboardType="email-address"
+              autoCapitalize="none"
+            />
+
+            <Input
+              label="Teléfono"
+              value={phone}
+              onChangeText={setPhone}
+              placeholder="+591 70123456"
+              keyboardType="phone-pad"
+              editable={false}
+              style={{ backgroundColor: COLORS.background.tertiary }}
+            />
+
             <View style={styles.infoBox}>
               <Ionicons name="information-circle" size={20} color={COLORS.semantic.info} />
               <Text style={styles.infoText}>
-                Para cambiar tu número de teléfono, contacta a soporte.
+                Para cambiar tu número de teléfono, deberás cerrar sesión y registrarte nuevamente.
               </Text>
             </View>
           </View>

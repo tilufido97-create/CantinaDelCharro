@@ -1,4 +1,4 @@
-package com.cantinacharro.app
+package com.cantinadelcharro.app
 
 import android.app.Application
 import android.content.res.Configuration

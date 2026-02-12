@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert, ActivityIndicator, Platform } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Modal, ActivityIndicator, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../../constants/theme';
 import AdminLayout from '../components/AdminLayout';
@@ -27,6 +27,7 @@ const OrdersManagementScreen = () => {
   const [statusFilter, setStatusFilter] = useState('all');
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState(null);
+  const [confirmModal, setConfirmModal] = useState({ visible: false, action: null, orderId: null, newStatus: null });
 
   const loadOrders = () => {
     setLoading(true);
@@ -73,18 +74,11 @@ const OrdersManagementScreen = () => {
     const result = await firebaseOrderService.updateOrderStatus(orderId, newStatus, additionalData);
     
     if (result.success) {
-      if (Platform.OS === 'web') {
-        window.alert(`Pedido actualizado a: ${ORDER_STATES[newStatus].label}`);
-      } else {
-        Alert.alert('Éxito', `Pedido actualizado a: ${ORDER_STATES[newStatus].label}`);
-      }
+      alert(`Pedido actualizado a: ${ORDER_STATES[newStatus].label}`);
     } else {
-      if (Platform.OS === 'web') {
-        window.alert('Error: No se pudo actualizar el pedido');
-      } else {
-        Alert.alert('Error', 'No se pudo actualizar el pedido');
-      }
+      alert('Error: No se pudo actualizar el pedido');
     }
+    setConfirmModal({ visible: false, action: null, orderId: null, newStatus: null });
   };
 
   const assignDelivery = async (orderId, deliveryId) => {
@@ -123,18 +117,11 @@ const OrdersManagementScreen = () => {
     const result = await firebaseOrderService.cancelOrder(orderId);
     
     if (result.success) {
-      if (Platform.OS === 'web') {
-        window.alert('Pedido cancelado y stock restaurado');
-      } else {
-        Alert.alert('Éxito', 'Pedido cancelado y stock restaurado');
-      }
+      alert('Pedido cancelado y stock restaurado');
     } else {
-      if (Platform.OS === 'web') {
-        window.alert('Error: No se pudo cancelar el pedido');
-      } else {
-        Alert.alert('Error', 'No se pudo cancelar el pedido');
-      }
+      alert('Error: No se pudo cancelar el pedido');
     }
+    setConfirmModal({ visible: false, action: null, orderId: null, newStatus: null });
   };
 
   const getNextStates = (currentState) => {
@@ -223,29 +210,11 @@ const OrdersManagementScreen = () => {
               onPress={(e) => {
                 e.stopPropagation();
                 if (nextState === 'cancelado') {
-                  if (Platform.OS === 'web') {
-                    if (window.confirm('¿Cancelar este pedido?')) {
-                      cancelOrder(order.id || order.orderId);
-                    }
-                  } else {
-                    Alert.alert(
-                      'Cancelar Pedido',
-                      '¿Estás seguro?',
-                      [
-                        { text: 'No', style: 'cancel' },
-                        { text: 'Sí', onPress: () => cancelOrder(order.id || order.orderId) }
-                      ]
-                    );
-                  }
+                  setConfirmModal({ visible: true, action: 'cancel', orderId: order.id || order.orderId, newStatus: null });
                 } else {
-                  // Validar que el estado sea correcto según el tipo de entrega
-                  if (nextState === 'listo_pickup' && order.deliveryType !== 'pickup') {
-                    return;
-                  }
-                  if (nextState === 'listo_delivery' && order.deliveryType !== 'delivery') {
-                    return;
-                  }
-                  updateOrderStatus(order.id || order.orderId, nextState);
+                  if (nextState === 'listo_pickup' && order.deliveryType !== 'pickup') return;
+                  if (nextState === 'listo_delivery' && order.deliveryType !== 'delivery') return;
+                  setConfirmModal({ visible: true, action: 'update', orderId: order.id || order.orderId, newStatus: nextState });
                 }
               }}
             >
@@ -348,6 +317,42 @@ const OrdersManagementScreen = () => {
         onUnassignDelivery={unassignDelivery}
         onCancelOrder={cancelOrder}
       />
+
+      <Modal visible={confirmModal.visible} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalIcon}>{confirmModal.action === 'cancel' ? '❌' : '✅'}</Text>
+            <Text style={styles.modalTitle}>
+              {confirmModal.action === 'cancel' ? 'Cancelar Pedido' : 'Actualizar Estado'}
+            </Text>
+            <Text style={styles.modalMessage}>
+              {confirmModal.action === 'cancel' 
+                ? '¿Estás seguro de cancelar este pedido?' 
+                : `¿Cambiar estado a "${ORDER_STATES[confirmModal.newStatus]?.label}"?`}
+            </Text>
+            <View style={styles.modalButtons}>
+              <TouchableOpacity 
+                style={styles.modalButtonCancel}
+                onPress={() => setConfirmModal({ visible: false, action: null, orderId: null, newStatus: null })}
+              >
+                <Text style={styles.modalButtonCancelText}>No</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={styles.modalButtonConfirm}
+                onPress={() => {
+                  if (confirmModal.action === 'cancel') {
+                    cancelOrder(confirmModal.orderId);
+                  } else {
+                    updateOrderStatus(confirmModal.orderId, confirmModal.newStatus);
+                  }
+                }}
+              >
+                <Text style={styles.modalButtonConfirmText}>Sí</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </AdminLayout>
   );
 };
@@ -385,7 +390,17 @@ const styles = StyleSheet.create({
   cancelButton: { backgroundColor: 'transparent', borderWidth: 1, borderColor: '#FF3B30' },
   cancelButtonText: { color: '#FF3B30' },
   emptyState: { paddingVertical: 60, alignItems: 'center' },
-  emptyText: { fontSize: 14, color: COLORS.textTertiary, marginTop: 16 }
+  emptyText: { fontSize: 14, color: COLORS.textTertiary, marginTop: 16 },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.7)', justifyContent: 'center', alignItems: 'center' },
+  modalContent: { backgroundColor: COLORS.bgSecondary, borderRadius: 16, padding: 32, width: 400, maxWidth: '90%', borderWidth: 1, borderColor: COLORS.bgTertiary },
+  modalIcon: { fontSize: 48, textAlign: 'center', marginBottom: 16 },
+  modalTitle: { fontSize: 24, fontWeight: '700', color: COLORS.textPrimary, textAlign: 'center', marginBottom: 12 },
+  modalMessage: { fontSize: 16, color: COLORS.textSecondary, textAlign: 'center', marginBottom: 24 },
+  modalButtons: { flexDirection: 'row', gap: 12 },
+  modalButtonCancel: { flex: 1, paddingVertical: 12, borderRadius: 8, backgroundColor: COLORS.bgTertiary, borderWidth: 1, borderColor: COLORS.textTertiary },
+  modalButtonCancelText: { fontSize: 15, fontWeight: '600', color: COLORS.textPrimary, textAlign: 'center' },
+  modalButtonConfirm: { flex: 1, paddingVertical: 12, borderRadius: 8, backgroundColor: COLORS.accentGold },
+  modalButtonConfirmText: { fontSize: 15, fontWeight: '600', color: COLORS.bgPrimary, textAlign: 'center' }
 });
 
 export default OrdersManagementScreen;

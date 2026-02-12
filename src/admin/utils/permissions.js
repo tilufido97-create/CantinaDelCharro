@@ -6,13 +6,26 @@ export const ROLES = {
   
   ADMIN: {
     name: 'Administrador',
+    permissions: ['*']  // ADMIN tiene acceso completo igual que SUPER_ADMIN
+  },
+  
+  REPARTIDOR: {
+    name: 'Repartidor',
     permissions: [
       'manage_products',
       'manage_orders',
-      'view_analytics',
-      'manage_promos',
       'approve_deliveries',
-      'manage_users'
+      'manage_promos'
+    ]
+  },
+  
+  REPONEDOR: {
+    name: 'Reponedor',
+    permissions: [
+      'manage_products',
+      'manage_orders',
+      'approve_deliveries',
+      'manage_promos'
     ]
   },
   

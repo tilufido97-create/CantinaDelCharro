@@ -194,6 +194,10 @@ export default function PhoneLoginScreen({ navigation }) {
                   <Text style={styles.checkmark}>✓</Text>
                   <Text style={styles.infoText}>Tus datos están seguros y encriptados</Text>
                 </View>
+                <View style={styles.infoRow}>
+                  <Text style={styles.checkmark}>✓</Text>
+                  <Text style={styles.infoText}>SMS real disponible en builds nativos (EAS)</Text>
+                </View>
               </View>
 
               {keyboardVisible && <View style={{ height: 20 }} />}

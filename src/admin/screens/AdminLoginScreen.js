@@ -140,9 +140,9 @@ export default function AdminLoginScreen({ navigation }) {
       
       Alert.alert(
         '🌱 Base de Datos Inicializada', 
-        `Usuarios administrativos creados:\n\n` +
+        `Usuarios administrativos procesados:\n\n` +
         `✅ Creados: ${result.created}\n` +
-        `⚠️ Ya existían: ${result.existing}\n` +
+        `🔄 Actualizados: ${result.updated}\n` +
         `❌ Errores: ${result.errors}\n\n` +
         `Ahora puedes usar los botones de acceso rápido`
       );
@@ -163,7 +163,11 @@ export default function AdminLoginScreen({ navigation }) {
   };
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
+    <ScrollView 
+      contentContainerStyle={styles.container}
+      style={{ flex: 1, backgroundColor: COLORS.background.primary }}
+      showsVerticalScrollIndicator={true}
+    >
       <View style={styles.formCard}>
         <Text style={styles.logo}>🤠</Text>
         <Text style={styles.title}>LA CANTINA DEL CHARRO</Text>
@@ -280,19 +284,18 @@ export default function AdminLoginScreen({ navigation }) {
 
 const styles = StyleSheet.create({
   container: {
-    flexGrow: 1,
     backgroundColor: COLORS.background.primary,
-    justifyContent: 'center',
     alignItems: 'center',
-    padding: 32,
-    minHeight: '100%',
+    padding: 20,
+    paddingTop: 40,
+    paddingBottom: 40,
   },
   formCard: {
     width: '100%',
     maxWidth: 600,
     backgroundColor: COLORS.background.secondary,
     borderRadius: 24,
-    padding: 48,
+    padding: 32,
     borderWidth: 1,
     borderColor: COLORS.background.tertiary,
     shadowColor: COLORS.accent.gold,
@@ -301,25 +304,25 @@ const styles = StyleSheet.create({
     shadowRadius: 24,
   },
   logo: {
-    fontSize: 64,
+    fontSize: 48,
     textAlign: 'center',
-    marginBottom: SPACING.md,
+    marginBottom: SPACING.sm,
   },
   title: {
-    fontSize: 24,
+    fontSize: 20,
     fontWeight: '700',
     color: COLORS.text.primary,
     textAlign: 'center',
     marginBottom: SPACING.xs,
   },
   subtitle: {
-    fontSize: 16,
+    fontSize: 14,
     color: COLORS.text.tertiary,
     textAlign: 'center',
-    marginBottom: SPACING.xl,
+    marginBottom: SPACING.lg,
   },
   inputGroup: {
-    marginBottom: SPACING.lg,
+    marginBottom: SPACING.md,
   },
   label: {
     fontSize: 14,
@@ -328,7 +331,7 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.sm,
   },
   input: {
-    height: 56,
+    height: 48,
     backgroundColor: COLORS.background.tertiary,
     borderRadius: 12,
     paddingHorizontal: 16,
@@ -352,12 +355,12 @@ const styles = StyleSheet.create({
     top: 16,
   },
   loginButton: {
-    height: 56,
+    height: 48,
     backgroundColor: COLORS.accent.gold,
     borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: SPACING.lg,
+    marginTop: SPACING.md,
   },
   loginButtonDisabled: {
     opacity: 0.6,
@@ -368,17 +371,17 @@ const styles = StyleSheet.create({
     color: COLORS.background.primary,
   },
   quickAccessSection: {
-    marginTop: SPACING.xl,
-    paddingTop: SPACING.lg,
+    marginTop: SPACING.md,
+    paddingTop: SPACING.md,
     borderTopWidth: 1,
     borderTopColor: COLORS.background.tertiary,
   },
   quickAccessTitle: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '600',
     color: COLORS.accent.gold,
     textAlign: 'center',
-    marginBottom: SPACING.lg,
+    marginBottom: SPACING.md,
   },
   quickButtonsGrid: {
     flexDirection: 'row',
@@ -392,7 +395,7 @@ const styles = StyleSheet.create({
     minWidth: '30%',
     backgroundColor: COLORS.background.tertiary,
     borderRadius: 12,
-    padding: 16,
+    padding: 12,
     alignItems: 'center',
     borderWidth: 2,
   },

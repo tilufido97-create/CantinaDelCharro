@@ -1,0 +1,40 @@
+{
+  "project_info": {
+    "project_number": "981284006966",
+    "firebase_url": "https://cantinadelcharro-default-rtdb.firebaseio.com",
+    "project_id": "cantinadelcharro",
+    "storage_bucket": "cantinadelcharro.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:981284006966:android:0a8f96127d9e9989abbc97",
+        "android_client_info": {
+          "package_name": "com.cantinadelcharro.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "981284006966-8vro4o8s50ap84vb6uehlqr7af9fi8e7.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDqiSkXMoDy6_M7wOGdgxUsosbMcBo5Szw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "981284006966-8vro4o8s50ap84vb6uehlqr7af9fi8e7.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -5,11 +5,26 @@ import { logger } from "../utils/logger";
 
 const defaultUsers = [
   {
-    id: "user_admin_001",
-    email: "tilufido97@gmail.com",
-    password: "123456", // En producción esto debería estar hasheado
+    id: "user_super_admin_001",
+    email: "nicolaspc97@gmail.com",
+    password: "Admin123!",
     userData: {
-      name: "Usuario Tilufido",
+      name: "Nicolás Pinto",
+      role: ROLES.ADMIN,
+      phone: "+591 70000001",
+      age: 27,
+      preferences: {
+        favoriteCategory: "tequila",
+        notifications: true
+      }
+    }
+  },
+  {
+    id: "user_admin_001",
+    email: "titanmia2016@gmail.com",
+    password: "$hadowFury2002",
+    userData: {
+      name: "Adrian Pinto",
       role: ROLES.ADMIN,
       phone: "+52 123 456 7890",
       age: 25,
@@ -73,6 +88,7 @@ export const seedUsersDB = async () => {
   let createdCount = 0;
   let existingCount = 0;
   let errorCount = 0;
+  let updatedCount = 0;
   
   for (const user of defaultUsers) {
     try {
@@ -84,9 +100,18 @@ export const seedUsersDB = async () => {
       const snapshot = await get(userRef);
       
       if (snapshot.exists()) {
-        console.log(`⚠️ Usuario ya existe: ${user.email}`);
-        logger.seederUserExists(user.email);
-        existingCount++;
+        // Actualizar usuario existente
+        await set(userRef, {
+          id: user.id,
+          email: user.email,
+          password: user.password,
+          ...user.userData,
+          createdAt: snapshot.val().createdAt || new Date().toISOString(),
+          lastLogin: snapshot.val().lastLogin,
+          isActive: true
+        });
+        console.log(`✅ Usuario actualizado: ${user.email}`);
+        updatedCount++;
         continue;
       }
       
@@ -94,7 +119,7 @@ export const seedUsersDB = async () => {
       await set(userRef, {
         id: user.id,
         email: user.email,
-        password: user.password, // En producción usar hash
+        password: user.password,
         ...user.userData,
         createdAt: new Date().toISOString(),
         lastLogin: null,
@@ -119,6 +144,7 @@ export const seedUsersDB = async () => {
     total: defaultUsers.length,
     created: createdCount,
     existing: existingCount,
+    updated: updatedCount,
     errors: errorCount
   };
   
@@ -133,34 +159,48 @@ export const seedUsersDB = async () => {
 export const loginWithDB = async (email, password) => {
   try {
     console.log(`🔐 Intentando login con DB: ${email}`);
+    console.log(`🔑 Password length: ${password.length}`);
     
-    // Buscar usuario por email
+    // Buscar usuario por email (case insensitive)
     const usersRef = ref(database, 'users');
     const snapshot = await get(usersRef);
     
     if (!snapshot.exists()) {
+      console.log('❌ No hay usuarios en la base de datos');
       throw new Error('No hay usuarios en la base de datos');
     }
     
     const users = snapshot.val();
-    const userEntry = Object.entries(users).find(([id, userData]) => 
-      userData.email === email && userData.password === password
-    );
+    console.log(`📊 Total usuarios en DB: ${Object.keys(users).length}`);
+    
+    const userEntry = Object.entries(users).find(([id, userData]) => {
+      const emailMatch = userData.email?.toLowerCase() === email.toLowerCase();
+      const passwordMatch = userData.password === password;
+      console.log(`🔍 Comparando con ${userData.email}: email=${emailMatch}, password=${passwordMatch}`);
+      return emailMatch && passwordMatch;
+    });
     
     if (!userEntry) {
+      console.log('❌ Credenciales incorrectas');
       throw new Error('Credenciales incorrectas');
     }
     
     const [userId, userData] = userEntry;
+    console.log(`✅ Usuario encontrado: ${userData.name} (${userData.role})`);
     
     // Actualizar último login
     await set(ref(database, `users/${userId}/lastLogin`), new Date().toISOString());
+    
+    // Agregar permissions según el rol
+    const permissions = userData.role === ROLES.ADMIN ? ['*'] : 
+                       userData.role === ROLES.REPARTIDOR ? ['manage_products', 'manage_orders', 'approve_deliveries', 'manage_promos'] :
+                       userData.role === ROLES.REPONEDOR ? ['manage_products', 'manage_orders', 'approve_deliveries', 'manage_promos'] : [];
     
     console.log(`✅ Login exitoso: ${email}`);
     return {
       success: true,
       user: { id: userId, email: userData.email },
-      userData
+      userData: { ...userData, permissions }
     };
     
   } catch (error) {
