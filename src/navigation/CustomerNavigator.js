@@ -17,6 +17,8 @@ import PaymentMethodScreen from '../screens/customer/PaymentMethodScreen';
 import OrderConfirmationScreen from '../screens/customer/OrderConfirmationScreen';
 import OrderTrackingScreen from '../screens/customer/OrderTrackingScreen';
 import PokerScreen from '../screens/games/PokerScreen';
+import PokerLobbyScreen from '../screens/games/PokerLobbyScreen';
+import PokerTableScreen from '../screens/games/PokerTableScreen';
 import BlackjackScreen from '../screens/games/BlackjackScreen';
 import MixologyMasterScreen from '../screens/games/MixologyMasterScreen';
 import ShotChallengeScreen from '../screens/games/ShotChallengeScreen';
@@ -125,7 +127,8 @@ export default function CustomerNavigator() {
       <Stack.Screen name="TrendingProducts" component={TrendingProductsScreen} />
       <Stack.Screen name="RuletaRusa" component={RuletaRusaScreen} />
       <Stack.Screen name="CulturaChupistica" component={CulturaChupisticaScreen} />
-      <Stack.Screen name="Poker" component={PokerScreen} />
+      <Stack.Screen name="Poker" component={PokerLobbyScreen} />
+      <Stack.Screen name="PokerTable" component={PokerTableScreen} />
       <Stack.Screen name="Blackjack" component={BlackjackScreen} />
       <Stack.Screen name="MixologyMaster" component={MixologyMasterScreen} />
       <Stack.Screen name="ShotChallenge" component={ShotChallengeScreen} />

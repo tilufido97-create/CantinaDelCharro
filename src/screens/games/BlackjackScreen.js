@@ -77,15 +77,15 @@ export default function BlackjackScreen({ navigation }) {
   };
 
   const renderCard = (card, hidden = false) => (
-    <View style={[styles.card, { borderColor: card.color === 'red' ? '#FF3B30' : '#000' }]}>
+    <View style={[styles.card, { borderColor: card.suitColor }]}>
       {hidden ? (
         <Text style={styles.cardBack}>🎴</Text>
       ) : (
         <>
-          <Text style={[styles.cardValue, { color: card.color === 'red' ? '#FF3B30' : '#000' }]}>
+          <Text style={[styles.cardValue, { color: card.suitColor }]}>
             {card.value}
           </Text>
-          <Text style={styles.cardSuit}>{card.suit}</Text>
+          <Text style={styles.cardSuit}>{card.suitEmoji}</Text>
         </>
       )}
     </View>

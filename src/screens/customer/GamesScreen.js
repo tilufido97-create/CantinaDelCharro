@@ -35,8 +35,8 @@ export default function GamesScreen({ navigation }) {
             />
             
             <Button
-              title="🃏 Poker"
-              onPress={() => navigation.navigate('Poker')}
+              title="🃏 Poker Multijugador"
+              onPress={() => navigation.navigate('Poker', { gameType: 'poker' })}
               variant="outline"
               fullWidth
             />
