@@ -45,7 +45,13 @@ export const evaluateHand = (playerCards, communityCards) => {
   if (counts[0] === 3) return { rank: HAND_RANKS.THREE_OF_KIND, name: 'Trío' };
   if (counts[0] === 2 && counts[1] === 2) return { rank: HAND_RANKS.TWO_PAIR, name: 'Doble Par' };
   if (counts[0] === 2) return { rank: HAND_RANKS.PAIR, name: 'Par' };
-  return { rank: HAND_RANKS.HIGH_CARD, name: 'Carta Alta' };
+  const highCard = Math.max(...values.map(getValueRank));
+  return { 
+    rank: HAND_RANKS.HIGH_CARD, 
+    name: 'Carta Alta',
+    highCard: highCard,
+    tieBreaker: sortedValues.slice(0, 5)
+  };
 };
 
 export const determineWinner = (players, communityCards) => {
