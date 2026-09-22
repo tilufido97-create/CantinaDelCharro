@@ -20,6 +20,7 @@ import PokerScreen from '../screens/games/PokerScreen';
 import PokerLobbyScreen from '../screens/games/PokerLobbyScreen';
 import PokerTableScreen from '../screens/games/PokerTableScreen';
 import BlackjackScreen from '../screens/games/BlackjackScreen';
+import BlackjackTableScreen from '../screens/games/BlackjackTableScreen';
 import MixologyMasterScreen from '../screens/games/MixologyMasterScreen';
 import ShotChallengeScreen from '../screens/games/ShotChallengeScreen';
 import ImpostorGameScreen from '../screens/games/ImpostorGameScreen';
@@ -130,6 +131,7 @@ export default function CustomerNavigator() {
       <Stack.Screen name="Poker" component={PokerLobbyScreen} />
       <Stack.Screen name="PokerTable" component={PokerTableScreen} />
       <Stack.Screen name="Blackjack" component={BlackjackScreen} />
+      <Stack.Screen name="BlackjackTable" component={BlackjackTableScreen} />
       <Stack.Screen name="MixologyMaster" component={MixologyMasterScreen} />
       <Stack.Screen name="ShotChallenge" component={ShotChallengeScreen} />
       <Stack.Screen name="ImpostorGame" component={ImpostorGameScreen} />

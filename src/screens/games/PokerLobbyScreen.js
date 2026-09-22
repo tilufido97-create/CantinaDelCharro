@@ -37,6 +37,7 @@ const DRINK_CATEGORIES = [
       { label: '1 Shot',   value: 1.0,  display: '1',  pct: 50  },
       { label: '1½ Shots', value: 1.5,  display: '1½', pct: 75  },
       { label: '2 Shots',  value: 2.0,  display: '2',  pct: 100 },
+      { label: 'Custom', value: null, display: '✏️', pct: 100, custom: true },
     ],
   },
   {
@@ -51,6 +52,7 @@ const DRINK_CATEGORIES = [
       { label: '50%', value: 0.5,  display: '½', pct: 50  },
       { label: '75%', value: 0.75, display: '¾', pct: 75  },
       { label: '100%', value: 1.0, display: '1', pct: 100 },
+      { label: 'Custom', value: null, display: '✏️', pct: 100, custom: true },
     ],
   },
   {
@@ -65,6 +67,7 @@ const DRINK_CATEGORIES = [
       { label: '50%', value: 0.5,  display: '½', pct: 50  },
       { label: '75%', value: 0.75, display: '¾', pct: 75  },
       { label: '100%', value: 1.0, display: '1', pct: 100 },
+      { label: 'Custom', value: null, display: '✏️', pct: 100, custom: true },
     ],
   },
   {
@@ -79,6 +82,7 @@ const DRINK_CATEGORIES = [
       { label: '50%', value: 0.5,  display: '½', pct: 50  },
       { label: '75%', value: 0.75, display: '¾', pct: 75  },
       { label: '100%', value: 1.0, display: '1', pct: 100 },
+      { label: 'Custom', value: null, display: '✏️', pct: 100, custom: true },
     ],
   },
 ];
@@ -107,18 +111,48 @@ function DrinkGlass({ pct, color, size = 40 }) {
   const fillAnim = useRef(new Animated.Value(0)).current;
   useEffect(() => {
     Animated.timing(fillAnim, {
-      toValue: pct / 100, duration: 600, useNativeDriver: false,
+      toValue: pct / 100, duration: 700,
+      useNativeDriver: false,
     }).start();
   }, [pct]);
-  const h = fillAnim.interpolate({ inputRange: [0, 1], outputRange: ['0%', '90%'] });
+  const h = fillAnim.interpolate({ 
+    inputRange: [0,1], outputRange:['0%','85%'] 
+  });
   return (
-    <View style={{ alignItems: 'center', gap: 2 }}>
-      <View style={[gs.glassBody, { width: size * 0.7, height: size, borderColor: color }]}>
-        <Animated.View style={[gs.glassLiquid, { height: h, backgroundColor: color + 'CC' }]} />
-        {pct > 0 && <View style={[gs.glassBubble, { backgroundColor: color + '60' }]} />}
+    <View style={{ alignItems:'center', gap:2 }}>
+      {/* Vaso con borde blanco + fondo oscuro */}
+      <View style={{
+        width: size * 0.65, height: size,
+        borderWidth: 2.5, borderColor: '#FFFFFF',
+        borderRadius: 5, overflow: 'hidden',
+        justifyContent: 'flex-end',
+        backgroundColor: 'rgba(0,0,0,0.6)',
+      }}>
+        {/* Líquido con color sólido */}
+        <Animated.View style={{
+          width: '100%', height: h,
+          backgroundColor: color,
+          borderRadius: 3,
+        }} />
+        {/* Brillo */}
+        <View style={{
+          position:'absolute', top:3, left:3,
+          width:3, height:10, borderRadius:2,
+          backgroundColor:'rgba(255,255,255,0.4)',
+        }} />
       </View>
-      <View style={[gs.glassStem, { backgroundColor: color + '80' }]} />
-      <View style={[gs.glassBase, { backgroundColor: color + '60', width: size * 0.55 }]} />
+      {/* Tallo */}
+      <View style={{ 
+        width:5, height:6,
+        backgroundColor: color + '90',
+        borderRadius:2,
+      }} />
+      {/* Base */}
+      <View style={{
+        width: size * 0.5, height:4,
+        backgroundColor: color + '70',
+        borderRadius:2,
+      }} />
     </View>
   );
 }
@@ -145,6 +179,8 @@ export default function PokerLobbyScreen({ navigation, route }) {
   // Config de tragos del HOST (lo que se guarda en Firebase)
   const [drinkConfig,    setDrinkConfig]    = useState(null);
   // { categoryId, categoryName, icon, color, unit, maxLevel, maxLabel }
+  const [customValue, setCustomValue] = useState('');
+  const [showCustomInput, setShowCustomInput] = useState(false);
 
   const fadeAnim     = useRef(new Animated.Value(0)).current;
   const scanFeedback = useRef(new Animated.Value(0)).current;
@@ -509,13 +545,52 @@ export default function PokerLobbyScreen({ navigation, route }) {
                                 <TouchableOpacity
                                   key={level.label}
                                   style={[s.levelBtn, { borderColor: cat.color + '50' }, sel && { backgroundColor: cat.color, borderColor: cat.color }]}
-                                  onPress={() => saveDrinkConfig(cat, level)}
+                                  onPress={() => !level.custom && saveDrinkConfig(cat, level)}
                                   activeOpacity={0.82}
+                                  disabled={level.custom}
                                 >
-                                  {/* Vaso visual */}
-                                  <DrinkGlass pct={sel ? level.pct : 0} color={sel ? '#000' : cat.color} size={36} />
-                                  <Text style={[s.levelLbl, sel && { color: '#000' }]}>{level.label}</Text>
-                                  <Text style={[s.levelPct, sel && { color: '#000000AA' }]}>{level.display}</Text>
+                                  {level.custom ? (
+                                    <View style={{alignItems:'center', gap:4}}>
+                                      <Text style={{fontSize:18}}>✏️</Text>
+                                      <TextInput
+                                        style={{
+                                          width:50, height:28, borderRadius:8,
+                                          borderWidth:1, borderColor: sel ? '#000' : cat.color,
+                                          color: sel ? '#000' : '#FFF',
+                                          textAlign:'center', fontSize:12, fontWeight:'700',
+                                          backgroundColor:'transparent',
+                                        }}
+                                        placeholder="2.5"
+                                        placeholderTextColor={sel ? '#00000060' : '#FFFFFF40'}
+                                        keyboardType="decimal-pad"
+                                        value={customValue}
+                                        onChangeText={setCustomValue}
+                                        onBlur={() => {
+                                          const val = parseFloat(customValue);
+                                          if (!isNaN(val) && val > 0) {
+                                            saveDrinkConfig(cat, {
+                                              ...level, value: val, 
+                                              label: `${val} ${cat.unit}`,
+                                              display: `${val}`,
+                                            });
+                                          }
+                                        }}
+                                      />
+                                      <Text style={{
+                                        fontSize:9, 
+                                        color: sel ? '#00000080' : '#FFFFFF50'
+                                      }}>
+                                        {cat.unit}s
+                                      </Text>
+                                    </View>
+                                  ) : (
+                                    <>
+                                      {/* Vaso visual */}
+                                      <DrinkGlass pct={sel ? level.pct : 0} color={sel ? '#000' : cat.color} size={36} />
+                                      <Text style={[s.levelLbl, sel && { color: '#000' }]}>{level.label}</Text>
+                                      <Text style={[s.levelPct, sel && { color: '#000000AA' }]}>{level.display}</Text>
+                                    </>
+                                  )}
                                 </TouchableOpacity>
                               );
                             })}

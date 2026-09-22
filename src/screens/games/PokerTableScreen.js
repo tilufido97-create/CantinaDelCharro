@@ -26,6 +26,9 @@ const BOTTOM_INSET = Platform.OS === 'ios' ? 34 :
 const CHIPS_START = 500;
 const BB = 20;
 const SB = 10;
+const COMMUNITY_CARD_SIZE = W < 380 ? 'sm' : 
+  W < 420 ? 'md' : 'md';
+const MY_CARD_SIZE = W < 380 ? 'md' : 'lg';
 
 const PHASES = ['preflop', 'flop', 'turn', 'river', 'showdown'];
 const PHASE_LABEL = {
@@ -367,6 +370,13 @@ export default function PokerTableScreen({ navigation, route }) {
       return bet >= newTableBet || chips === 0;
     });
 
+    // Si ambos hicieron all-in → showdown directo
+    if (allAllIn) {
+      console.log('☠️ TODOS ALL-IN → showdown directo');
+      await updateGameState(roomCode, updatedGs);
+      return advanceToShowdown(updatedGs);
+    }
+
     if (allActed && allEqual) {
       console.log('🎯 doAction SALIDA: Todos actuaron y están iguales, avanzar fase');
       await updateGameState(roomCode, updatedGs);
@@ -398,6 +408,32 @@ export default function PokerTableScreen({ navigation, route }) {
       console.log('🎯 doAction SALIDA: Todos all-in, avanzar fase');
       await updateGameState(roomCode, updatedGs);
       return advancePhase(updatedGs);
+    }
+
+    // Detectar si hay algún all-in en la mesa
+    const someoneAllIn = active.some(u => 
+      (newChips[u] || 0) === 0
+    );
+
+    // Si hay all-in, solo permitir call o fold
+    // No más raises después de un all-in
+    if (someoneAllIn && !isFold) {
+      // Solo avanzar turno, no permitir más raises
+      const activeIdx = active.indexOf(uid);
+      const nextUid = active[(activeIdx + 1) % active.length];
+      
+      // Si el siguiente ya actuó → ir a showdown
+      if (newActed.includes(nextUid) || active.length <= 1) {
+        await updateGameState(roomCode, updatedGs);
+        return advanceToShowdown(updatedGs);
+      }
+      
+      await updateGameState(roomCode, {
+        ...updatedGs,
+        currentTurn: nextUid,
+        allInActive: true, // flag para bloquear raises
+      });
+      return;
     }
 
     console.log('🎯 doAction FINAL - nextUid:', finalNextUid, 
@@ -465,12 +501,13 @@ export default function PokerTableScreen({ navigation, route }) {
   };
 
   const handleAllIn = async () => {
-    console.log('☠️ ALL-IN INICIANDO', {isMyTurn, folded, myChips});
-    if (!isMyTurn || folded || myChips <= 0) return;
+    if (!isMyTurn || folded) return;
+    const gs = gsRef.current;
+    const realChips = gs?.chips?.[user?.uid] ?? myChips;
+    if (realChips <= 0) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-    console.log('☠️ ALL-IN llamando doAction con', myChips);
-    await doAction(myChips);
-    console.log('☠️ ALL-IN completado');
+    console.log('☠️ ALL-IN con chips reales:', realChips);
+    await doAction(realChips);
   };
 
   // ── PAUSA GRUPAL DE TRAGOS ────────────────────────────────────────────────
@@ -510,6 +547,25 @@ export default function PokerTableScreen({ navigation, route }) {
       });
     }
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+  };
+
+  // ── AVANZAR A SHOWDOWN DIRECTO ────────────────────────────────────────────
+  const advanceToShowdown = async (gs) => {
+    const r = roomRef.current;
+    if (!r) return;
+    // Revelar todas las cartas comunitarias
+    const cd = gs.communityDeck || [];
+    await updateGameState(roomCode, {
+      ...gs,
+      phase: 'showdown',
+      communityCards: cd.slice(0, 5),
+      currentTurn: null,
+    });
+    // Calcular ganador
+    setTimeout(() => handleShowdown({
+      ...gs,
+      communityCards: cd.slice(0, 5),
+    }), 500);
   };
 
   // ── AVANZAR FASE ────────────────────────────────────────────────────────────
@@ -731,18 +787,31 @@ export default function PokerTableScreen({ navigation, route }) {
           {/* POZO CON MEDIDOR */}
           <Animated.View style={[s.potWrap, { transform: [{ scale: potAnim }] }]}>
             <LinearGradient colors={['#1A0800','#2C1200']} style={s.potInner}>
-              <Text style={s.potLabel}>POZO</Text>
+              <Text style={s.potLabel}>POZO DE TRAGOS</Text>
               <View style={s.potRow}>
-                <Text style={s.potDrink}>
-                  {drinkConfig 
-                    ? `💀 Hasta ${drinkConfig.maxValue} ${drinkConfig.unit}${drinkConfig.maxValue > 1 ? 's' : ''}`
-                    : `${pot} pts`}
-                </Text>
+                {drinkConfig ? (
+                  <Text style={s.potAmt}>
+                    {drinkConfig.icon} {(pot / CHIPS_START * drinkConfig.maxValue).toFixed(2)} {drinkConfig.unit}s
+                  </Text>
+                ) : (
+                  <Text style={s.potAmt}>{pot} pts</Text>
+                )}
               </View>
               {drinkConfig && (
-                <Text style={{color:'#FFB80060', fontSize:9, marginTop:2}}>
+                <Text style={{color: drinkConfig.color, fontSize:10, marginTop:2}}>
                   Perdedor beberá
                 </Text>
+              )}
+              {/* Medidor */}
+              {drinkConfig && pot > 0 && (
+                <View style={s.drinkMeterWrap}>
+                  <View style={s.drinkMeterBg}>
+                    <View style={[s.drinkMeterFill, {
+                      width:`${Math.min((pot/(CHIPS_START*2))*100,100)}%`,
+                      backgroundColor: drinkConfig.color,
+                    }]} />
+                  </View>
+                </View>
               )}
             </LinearGradient>
           </Animated.View>
@@ -753,11 +822,14 @@ export default function PokerTableScreen({ navigation, route }) {
           </LinearGradient>
 
           {/* CARTAS COMUNITARIAS */}
-          <View style={s.communityRow}>
+          <View style={[s.communityRow, {
+            gap: W < 380 ? 3 : 5,
+            paddingHorizontal: W < 380 ? 2 : 0,
+          }]}>
             {[0,1,2,3,4].map(i =>
               community[i]
-                ? <CardComponent key={i} card={community[i]} faceUp size="sm" animated />
-                : <EmptyCardSlot key={i} size="sm" />
+                ? <CardComponent key={i} card={community[i]} faceUp size={COMMUNITY_CARD_SIZE} animated />
+                : <EmptyCardSlot key={i} size={COMMUNITY_CARD_SIZE} />
             )}
           </View>
 
@@ -842,19 +914,31 @@ export default function PokerTableScreen({ navigation, route }) {
           )}
 
           {/* MIS CARTAS */}
-          <View style={s.myCards}>
+          <View style={[s.myCards, {
+            gap: W < 380 ? 6 : 12,
+          }]}>
             {myHand.length > 0
               ? myHand.map((card, i) => (
-                  <CardComponent key={i} card={card} faceUp={!folded} size="lg" animated />
+                  <CardComponent key={i} card={card} faceUp={!folded} size={MY_CARD_SIZE} animated />
                 ))
-              : [0,1].map(i => <EmptyCardSlot key={i} size="lg" />)
+              : [0,1].map(i => <EmptyCardSlot key={i} size={MY_CARD_SIZE} />)
             }
           </View>
 
           {/* MI AVATAR */}
           {me && (
             <PlayerAvatar
-              player={{ ...me, chips: myChips, currentBet: myBet }}
+              player={{ 
+                ...me, 
+                chips: myChips,
+                currentBet: myBet,
+                chipsDisplay: drinkConfig 
+                  ? `${Math.round((myChips/CHIPS_START)*100)}%`
+                  : `${myChips}`,
+                betDisplay: drinkConfig && myBet > 0
+                  ? `${drinkConfig.icon}${(myBet/CHIPS_START*drinkConfig.maxValue).toFixed(2)}`
+                  : myBet > 0 ? `${myBet}` : null,
+              }}
               size="md" isCurrentTurn={isMyTurn}
               isWinner={winners.includes(user?.uid)}
               isFolded={folded} isDealer={dealerUid === user?.uid}
@@ -1003,7 +1087,7 @@ export default function PokerTableScreen({ navigation, route }) {
                       handleRaiseAmount(raiseAmount);
                       setShowRaiseSlider(false);
                     }}
-                    disabled={!isMyTurn}>
+                    disabled={!isMyTurn || gsRef.current?.allInActive}>
                     <Text style={{color: raiseAmount >= 1.0 ? '#FFF' : '#000',
                       fontWeight:'900',fontSize:11}}>
                       {raiseAmount >= 1.0 ? `☠️ ALL IN` : 'APOSTAR'}
@@ -1017,9 +1101,10 @@ export default function PokerTableScreen({ navigation, route }) {
                 </View>
               ) : (
                 <TouchableOpacity
-                  style={[s.actionBtn, s.gradStyle, !isMyTurn && s.dim]}
+                  style={[s.actionBtn, s.gradStyle, 
+                    (!isMyTurn || gsRef.current?.allInActive) && s.dim]}
                   onPress={() => setShowRaiseSlider(true)}
-                  disabled={!isMyTurn} activeOpacity={0.82}
+                  disabled={!isMyTurn || gsRef.current?.allInActive} activeOpacity={0.82}
                 >
                   <LinearGradient
                     colors={isMyTurn?['#FFB800','#FF8C00']:['#2A2A2A','#1A1A1A']}
@@ -1047,8 +1132,11 @@ export default function PokerTableScreen({ navigation, route }) {
                 
                 return (
                   <TouchableOpacity
-                    style={[s.actionBtn, s.allInStyle, (!isMyTurn || myChips <= 0) && s.dim]}
-                    onPress={handleAllIn} disabled={!isMyTurn || myChips <= 0} activeOpacity={0.82}
+                    style={[s.actionBtn, s.allInStyle, 
+                      (!isMyTurn || myChips <= 0 || gsRef.current?.allInActive) && s.dim]}
+                    onPress={handleAllIn} 
+                    disabled={!isMyTurn || myChips <= 0 || gsRef.current?.allInActive} 
+                    activeOpacity={0.82}
                   >
                     <Text style={s.allInTxt}>ALL{'\n'}IN</Text>
                     <Text style={s.actionSub}>
@@ -1132,7 +1220,14 @@ export default function PokerTableScreen({ navigation, route }) {
                 {/* Vasos visuales */}
                 <View style={s.pauseGlasses}>
                   {Array.from({ length: Math.ceil(loser.shots) }).map((_, gi) => (
-                    <DrinkGlassIcon key={gi} color={loser.color} full={gi < loser.shots} />
+                    <DrinkGlassIcon 
+                      key={gi} 
+                      color={loser.color} 
+                      full={gi < loser.shots}
+                      pct={gi < Math.floor(loser.shots) 
+                        ? 1.0 
+                        : loser.shots % 1 || 1.0}
+                    />
                   ))}
                 </View>
               </View>
@@ -1222,21 +1317,65 @@ function OpponentSlot({ p, gs, allHands, allChips, allBets, winners, dealerUid, 
 }
 
 // ── COMPONENTE: Vaso de trago ─────────────────────────────────────────────────
-function DrinkGlassIcon({ color, full }) {
+function DrinkGlassIcon({ color, full, pct = 1 }) {
   const fillAnim = useRef(new Animated.Value(0)).current;
   useEffect(() => {
     if (full) {
-      Animated.timing(fillAnim, { toValue: 1, duration: 800, useNativeDriver: false }).start();
+      Animated.timing(fillAnim, { 
+        toValue: pct, duration: 900, 
+        useNativeDriver: false 
+      }).start();
     }
   }, [full]);
-  const h = fillAnim.interpolate({ inputRange: [0,1], outputRange: ['0%','75%'] });
+  const h = fillAnim.interpolate({ 
+    inputRange: [0,1], 
+    outputRange: ['0%', '80%'] 
+  });
+  const liquidColor = color || '#FF6B00';
   return (
     <View style={{ alignItems: 'center', gap: 2 }}>
-      <View style={[s.glassBody, { borderColor: full ? color : '#333' }]}>
-        <Animated.View style={[s.glassLiquid, { height: h, backgroundColor: color }]} />
+      {/* Vaso */}
+      <View style={{
+        width: 36, height: 52,
+        borderWidth: 2.5,
+        borderColor: liquidColor,
+        borderRadius: 5,
+        overflow: 'hidden',
+        justifyContent: 'flex-end',
+        backgroundColor: liquidColor + '15',
+      }}>
+        {/* Líquido animado */}
+        <Animated.View style={{
+          width: '100%',
+          height: h,
+          backgroundColor: liquidColor,
+          borderRadius: 3,
+        }} />
+        {/* Brillo */}
+        <View style={{
+          position:'absolute', top:4, left:4,
+          width:4, height:12, borderRadius:2,
+          backgroundColor:'rgba(255,255,255,0.35)',
+        }} />
       </View>
-      <View style={[s.glassStem, { backgroundColor: full ? color + '80' : '#33333380' }]} />
-      <View style={[s.glassBase, { backgroundColor: full ? color + '60' : '#33333360' }]} />
+      {/* Base */}
+      <View style={{ 
+        width: 8, height: 6, 
+        backgroundColor: liquidColor + '80',
+        borderRadius: 2,
+      }} />
+      <View style={{ 
+        width: 22, height: 4,
+        backgroundColor: liquidColor + '60',
+        borderRadius: 2,
+      }} />
+      {/* Porcentaje */}
+      <Text style={{
+        color: liquidColor, fontSize: 9,
+        fontWeight: '800', marginTop: 1,
+      }}>
+        {Math.round(pct * 100)}%
+      </Text>
     </View>
   );
 }
@@ -1294,7 +1433,10 @@ const s = StyleSheet.create({
   potInner: { paddingHorizontal: 24, paddingVertical: 10, alignItems: 'center', borderWidth: 1, borderColor: '#FFB80035', borderRadius: 18 },
   potLabel: { color: '#FFB80065', fontSize: 8, letterSpacing: 4, fontWeight: '800' },
   potRow: { flexDirection: 'row', alignItems: 'center', gap: 7 },
-  potDrink: { color: '#FFB800', fontSize: 20, fontWeight: '900' },
+  potAmt: { color: '#FFB800', fontSize: 20, fontWeight: '900' },
+  drinkMeterWrap: { width: '100%', marginTop: 6 },
+  drinkMeterBg: { height: 6, backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 3, overflow: 'hidden' },
+  drinkMeterFill: { height: '100%', borderRadius: 3 },
 
   phasePill: { borderRadius: 12, paddingHorizontal: 16, paddingVertical: 5, borderWidth: 1, borderColor: '#FFB80020' },
   phaseText: { color: '#FFB800', fontSize: 11, fontWeight: '800', letterSpacing: 2 },
@@ -1366,10 +1508,4 @@ const s = StyleSheet.create({
   pauseConfirmTxt: { color: '#FFF', fontSize: 22, fontWeight: '900', letterSpacing: 2 },
   pauseWaitingOthers: { backgroundColor: 'rgba(52,199,89,0.1)', borderRadius: 14, padding: 18, alignItems: 'center', borderWidth: 1, borderColor: '#34C75940' },
   pauseWaitingTxt: { color: '#34C759', fontSize: 15, fontWeight: '700', textAlign: 'center' },
-
-  // Vaso
-  glassBody: { width: 24, height: 34, borderWidth: 2, borderRadius: 3, overflow: 'hidden', justifyContent: 'flex-end', backgroundColor: 'rgba(255,255,255,0.04)' },
-  glassLiquid: { width: '100%' },
-  glassStem: { width: 3, height: 6, borderRadius: 2 },
-  glassBase: { width: 16, height: 3, borderRadius: 2 },
 });

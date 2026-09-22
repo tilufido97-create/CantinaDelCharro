@@ -162,7 +162,9 @@ export const PlayerAvatar = ({
       <View style={styles.badgesRow}>
         {showChips && (
           <View style={styles.chipsBadge}>
-            <Text style={styles.chipsTxt}>🪙{player?.chips ?? 500}</Text>
+            <Text style={styles.chipsTxt}>
+              {player?.chipsDisplay ?? `🪙${player?.chips ?? 500}`}
+            </Text>
           </View>
         )}
         {showShots && (player?.shots || 0) > 0 && (
@@ -175,7 +177,9 @@ export const PlayerAvatar = ({
       {/* APUESTA ACTUAL */}
       {(player?.currentBet || 0) > 0 && (
         <View style={styles.betBadge}>
-          <Text style={styles.betTxt}>{player.currentBet}🪙</Text>
+          <Text style={styles.betTxt}>
+            {player?.betDisplay ?? `${player.currentBet}🪙`}
+          </Text>
         </View>
       )}
     </View>
